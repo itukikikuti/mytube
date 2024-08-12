@@ -10,6 +10,7 @@
         "build": "tsc && npm run copy && electron-packager . MyTube --platform=win32 --arch=x64 --overwrite"
     },
     "dependencies": {
+        "jotai": "^2.9.1",
         "nedb": "^1.8.0",
         "react": "^18.3.1",
         "react-dom": "^18.3.1",

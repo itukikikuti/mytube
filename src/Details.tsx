@@ -1,24 +1,25 @@
 import { exec } from "child_process"
 import React, { useState, useEffect, useRef, useCallback, MouseEvent, ChangeEvent } from "react"
 import ReactDOM from "react-dom"
-import { useDispatch, useSelector } from "react-redux"
+import { useAtomValue, useSetAtom } from "jotai"
+import { addHistoryAtom, addTagAtom, mediasAtom, removeTagAtom, tagsAtom, updateMediaAtom } from "./State"
 import History from "./History"
-import State from "./State"
-import Media from "./Media"
 
 export default function Details(props: any) {
     const [loopBegin, setLoopBegin] = useState(0)
     const [loopEnd, setLoopEnd] = useState(0)
     const [inputTag, setInputTag] = useState("")
+    const medias = useAtomValue(mediasAtom)
+    const tags = useAtomValue(tagsAtom)
+    const updateMedia = useSetAtom(updateMediaAtom)
+    const addTagDB = useSetAtom(addTagAtom)
+    const removeTagDB = useSetAtom(removeTagAtom)
+    const addHistory = useSetAtom(addHistoryAtom)
+
+    const media = medias.find(media => media.title === props.title)!
 
     const videoRef = useRef<HTMLVideoElement>()
     const setVideoRef = useCallback((node: HTMLVideoElement) => videoRef.current = node, [])
-
-    const medias = useSelector<State, Media[]>(state => state.medias)
-    const media = useSelector<State, Media>(state => state.medias.find((media: any) => media.title === props.title)!)
-    const tags = useSelector<State, { tag: string }[]>(state => state.tags)
-
-    const dispatch = useDispatch()
 
     const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === "Escape") {
@@ -33,7 +34,7 @@ export default function Details(props: any) {
     }
 
     const play = () => {
-        dispatch({ type: "addHistory", history: new History(media.title, new Date()) })
+        addHistory(new History(media.title, new Date()))
 
         let command = "\"" + media.path + "\""
         console.log(`exec ${command}`)
@@ -61,13 +62,13 @@ export default function Details(props: any) {
 
         const temp = { ...media }
         temp.thumbs.push(thumb)
-        dispatch({ type: "updateMedia", media: temp })
+        updateMedia(temp)
     }
 
     const removeThumb = (i: number) => {
         const temp = { ...media }
         temp.thumbs.splice(i, 1)
-        dispatch({ type: "updateMedia", media: temp })
+        updateMedia(temp)
     }
 
     const loadThumb = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -97,7 +98,7 @@ export default function Details(props: any) {
 
         const temp = { ...media }
         temp.thumbs.push(thumb)
-        dispatch({ type: "updateMedia", media: temp })
+        updateMedia(temp)
     }
 
     const waitEvent = (element: EventTarget, type: string): Promise<void> => {
@@ -114,7 +115,7 @@ export default function Details(props: any) {
 
         const temp = { ...media }
         temp.rate = rate
-        dispatch({ type: "updateMedia", media: temp })
+        updateMedia(temp)
     }
 
     const onChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -128,10 +129,10 @@ export default function Details(props: any) {
 
         if (!temp.tags.includes(inputTag)) {
             temp.tags = [...temp.tags, inputTag]
-            dispatch({ type: "updateMedia", media: temp })
+            updateMedia(temp)
     
             if (tags.find(tag => tag.tag === inputTag) == null) {
-                dispatch({ type: "addTag", tag: inputTag })
+                addTagDB(inputTag)
             }
         }
     }
@@ -142,10 +143,10 @@ export default function Details(props: any) {
         const temp = { ...media }
 
         temp.tags = temp.tags.filter(t => t !== tag)
-        dispatch({ type: "updateMedia", media: temp })
+        updateMedia(temp)
 
         if (medias.filter(media => media.tags.includes(tag)).length === 0) {
-            dispatch({ type: "removeTag", tag: tag })
+            removeTagDB(tag);
         }
     }
 

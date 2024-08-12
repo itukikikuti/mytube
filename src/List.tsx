@@ -1,11 +1,11 @@
 import fs from "fs"
 import path from "path"
 import React, { useState, useEffect } from "react"
-import { useDispatch, useSelector, shallowEqual } from "react-redux"
+import { useAtomValue, useSetAtom } from "jotai"
+import { addMediaAtom, historiesAtom, mediaListAtom, mediasAtom, sortMediaListAtom, tagsAtom } from "./State"
 import Item from "./Item"
 import Media from "./Media"
 import History from "./History"
-import State from "./State"
 import ChangeTitleDialog from "./Dialog/ChangeTitleDialog"
 
 export default function List(props: any) {
@@ -15,13 +15,12 @@ export default function List(props: any) {
     const [thumbFlags, setThumbFlags] = useState([false, false])
     const [sort, setSort] = useState("date")
     const [tagMode, setTagMode] = useState("filter")
-
-    const medias = useSelector<State, Media[]>(state => state.medias, shallowEqual)
-    const mediaList = useSelector<State, string[]>(state => state.mediaList, shallowEqual)
-    const histories = useSelector<State, History[]>(state => state.histories, shallowEqual)
-    const tags = useSelector<State, { tag: string }[]>(state => state.tags, shallowEqual)
-
-    const dispatch = useDispatch()
+    const medias = useAtomValue(mediasAtom)
+    const mediaList = useAtomValue(mediaListAtom)
+    const histories = useAtomValue(historiesAtom)
+    const tags = useAtomValue(tagsAtom)
+    const addMedia = useSetAtom(addMediaAtom)
+    const sortMediaList = useSetAtom(sortMediaListAtom)
 
     useEffect(() => { load() }, []) // 空の配列を指定すると一回だけ実行される
 
@@ -50,15 +49,15 @@ export default function List(props: any) {
                     const stat = await fs.promises.stat(fullPath)
                     const duration = Math.floor(videoElement.duration)
 
-                    dispatch({ type: "addMedia", media: new Media(title, fullPath, stat.birthtime, "video", 0, duration) })
+                    addMedia(new Media(title, fullPath, stat.birthtime, "video", 0, duration))
             } else if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".jfif" || ext == ".webp") {
                     const stat = await fs.promises.stat(fullPath)
 
-                    dispatch({ type: "addMedia", media: new Media(title, fullPath, stat.birthtime, "image", 0, 0) })
+                    addMedia(new Media(title, fullPath, stat.birthtime, "image", 0, 0))
             } else if (ext == ".gif") {
                     const stat = await fs.promises.stat(fullPath)
 
-                    dispatch({ type: "addMedia", media: new Media(title, fullPath, stat.birthtime, "anime", 0, 0) })
+                    addMedia(new Media(title, fullPath, stat.birthtime, "anime", 0, 0))
             } else {
                 continue
             }
@@ -149,7 +148,7 @@ export default function List(props: any) {
                 break
         }
 
-        dispatch({ type: "sortMediaList", mediaList: _medias.map(media => media.title) })
+        sortMediaList(_medias.map(media => media.title))
     }
 
     const setRateFlag = (rate: number) => {

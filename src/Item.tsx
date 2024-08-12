@@ -1,18 +1,17 @@
 import React, { useState, useEffect, MouseEvent } from "react"
-import { useDispatch, useSelector } from "react-redux"
+import { useAtomValue, useSetAtom } from "jotai"
+import { currentAtom, historiesAtom, mediasAtom } from "./State"
 import Details from "./Details"
-import Media from "./Media"
-import State from "./State"
 
 export default React.memo(function Item(props: any) {
     const [isPreview, setIsPreview] = useState(false)
     const [isDetails, setIsDetails] = useState(false)
     const [thumbIndex, setThumbIndex] = useState(0)
+    const medias = useAtomValue(mediasAtom)
+    const histories = useAtomValue(historiesAtom)
+    const setCurrent = useSetAtom(currentAtom)
 
-    const media = useSelector<State, Media>(state => state.medias.find(media => media.title === props.title)!)
-    const historyCount = useSelector<State, number>(state => state.histories.filter(history => history.title === props.title).length)
-
-    const dispatch = useDispatch()
+    const media = medias.find(media => media.title === props.title)!
     
     useEffect(() => {
         const id = setInterval(() => {
@@ -30,16 +29,17 @@ export default React.memo(function Item(props: any) {
     }
 
     const openDetails = () => {
-        dispatch({ type: "currentMedia", title: media.title })
+        setCurrent(media.title)
         setIsDetails(true)
     }
 
     const closeDetails = () => {
-        dispatch({ type: "currentMedia", title: null })
+        setCurrent("")
         setIsDetails(false)
     }
     console.log(media)
 
+    const historyCount = histories.filter(history => history.title === props.title).length
     const minutes = Math.floor(media.duration / 60).toString()
     const seconds = ("00" + (media.duration % 60).toString()).slice(-2)
 

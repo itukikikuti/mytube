@@ -1,73 +1,34 @@
 import fs from "fs"
-import React from "react"
+import React, { useEffect } from "react"
 import { createRoot } from "react-dom/client"
-import { createStore } from "redux"
-import { Provider } from "react-redux"
+import { useSetAtom } from "jotai"
 import { mediaDB, tagDB, historyDB } from "./Database"
+import { historiesAtom, mediasAtom, tagsAtom } from "./State"
 import List from "./List"
-import State from "./State"
-import Media from "./Media"
 
-function reducer(state: any, action: any) {
-    console.log(action)
-
-    switch (action.type) {
-        case "sortMediaList":
-            state.mediaList = [...action.mediaList]
-            break
-
-        case "addMedia":
-            mediaDB.add(action.media)
-            state.medias = [...state.medias, action.media]
-            state.mediaList = [...state.mediaList, action.media.title]
-            break
-            
-        case "updateMedia":
-            mediaDB.update({ title: action.media.title }, action.media)
-            const i = state.medias.findIndex((media: Media) => media.title === action.media.title)
-            state.medias[i] = action.media
-            break
-
-        case "addTag":
-            tagDB.add({ tag: action.tag })
-            state.tags = [...state.tags, { tag: action.tag }]
-            break
-
-        case "removeTag":
-            tagDB.remove({ tag: action.tag })
-            state.tags = state.tags.filter((tag: { tag: string }) => tag.tag !== action.tag)
-            break
-
-        case "addHistory":
-            historyDB.add(action.history)
-            state.histories = [...state.histories, action.history]
-            break
-            
-        case "currentMedia":
-            state.current = action.title
-            break
-    }
-    return { ...state }
-}
-
-function App() {
+function App(props: any) {
     const path = fs.readFileSync("./config.dat");
+    const setMedias = useSetAtom(mediasAtom)
+    const setTags = useSetAtom(tagsAtom)
+    const setHistories = useSetAtom(historiesAtom)
+
+    useEffect(() => {
+        setMedias(props.medias)
+        setTags(props.tags)
+        setHistories(props.histories)
+    }, [])
 
     return <List path={path} />
 }
 
 async function init() {
-    const initialState: State = {
+    const state = {
         medias: await mediaDB.find({}),
-        mediaList: [],
         tags: await tagDB.find({}),
         histories: await historyDB.find({}),
-        current: null,
     }
-
-    const store = createStore(reducer, initialState)
     const root = createRoot(document.getElementById("root"))
-    root.render(<Provider store={store}><App /></Provider>)
+    root.render(<App initialState={state} />)   
 }
 
 init()
