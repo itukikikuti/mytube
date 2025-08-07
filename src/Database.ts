@@ -67,7 +67,7 @@ class Database<T> {
     }
 }
 
-const path = fs.readFileSync("./config.dat");
+const path = fs.readFileSync("./config.dat")
 
 export const mediaDB = new Database<Media>(`${path}/data/media.db`)
 export const tagDB = new Database<{ tag: string }>(`${path}/data/tag.db`)

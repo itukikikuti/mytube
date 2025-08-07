@@ -51,6 +51,8 @@ function App(props: { initialState: State }) {
     const [state, dispatch] = useReducer(reducer, props.initialState)
     const path = fs.readFileSync("./config.dat")
 
+    versions.chrome()
+
     return (
         <StateContext.Provider value={state}>
             <StateDispatchContext.Provider value={dispatch}>
