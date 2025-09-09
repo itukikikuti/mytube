@@ -17,4 +17,5 @@ samples, guidance on mobile development, and a full API reference.
 
 ```
 flutter run -d web-server --web-hostname=0.0.0.0 --web-port=50505
+flutter run -d windows
 ```

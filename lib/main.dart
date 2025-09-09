@@ -1,122 +1,367 @@
 import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'mytube',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
+    return const MaterialApp(home: HomePage());
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<HomePage> createState() => _HomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _HomePageState extends State<HomePage> {
+  bool _isFilterApplied = false;
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  String? _selectedCategory; // null許容にする
+  final List<String> _categories = ['追加順', 'シャッフル', '最近再生した', '再生数', '長さ'];
+
+  final List<String> _allTags = [
+    'Flutter',
+    'Flustter',
+    'Flutterwef',
+    'Flutteawr',
+    'wf',
+    'Falutter',
+    'Flwefutter',
+    'Flutterff',
+    'Flutter1',
+    'Flutter2',
+    'Flutter3',
+    'Flutter4',
+    'Flutter5',
+    'Flutter6',
+    'Flutter7',
+    'Flutter8',
+    'Fluttererwf',
+    'Flutterfawe',
+    'Fluttesr',
+    'awe',
+    'we',
+    'Fwefwelutter',
+    'Fluttewefr',
+    'weeee',
+    'Fluteetefefer',
+    'weffewe',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Flutter',
+    'Dart',
+    'UI/UX',
+    'Firebase',
+    'Go',
+  ];
+  final Set<String> _selectedTags = {};
+
+  late VideoPlayerController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    // ネットワーク上の動画URLでコントローラーを初期化
+    _controller =
+        VideoPlayerController.networkUrl(
+            Uri.parse(
+              'https://flutter.github.io/assets-for-api-docs/assets/videos/butterfly.mp4',
+            ),
+          )
+          ..initialize().then((_) {
+            // 初期化が終わったらUIを更新
+            setState(() {});
+          })
+          ..setLooping(true); // ループ再生を有効に
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+      appBar: AppBar(title: const Text('フィルタリングサイドバー')),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            const SizedBox(height: 50),
+
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: ElevatedButton(
+                onPressed: () {
+                  // ボタンが押された時の処理
+                  // 1. 現在のフィルター状態を取得
+                  final filters = {
+                    'isNewOnly': _isFilterApplied,
+                    'category': _selectedCategory,
+                    'tags': _selectedTags,
+                  };
+                  // 2. コンソールに表示（実際のアプリではここでデータ更新処理を呼ぶ）
+                  print('適用されたフィルター: $filters');
+
+                  // 3. Drawerを閉じる
+                  Navigator.pop(context);
+
+                  // 4. (任意) フィルター適用を伝えるメッセージを表示
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('フィルターを適用しました')));
+                },
+                child: const Text('この条件で絞り込む'),
+              ),
+            ),
+
+            const Divider(),
+
+            CheckboxListTile(
+              title: const Text('❤️❤️❤️❤️❤️'),
+              value: _isFilterApplied,
+              onChanged: (bool? newValue) {
+                setState(() {
+                  _isFilterApplied = newValue!;
+                });
+              },
+            ),
+            CheckboxListTile(
+              title: const Text('❤️❤️❤️❤️🤍'),
+              value: _isFilterApplied,
+              onChanged: (bool? newValue) {
+                setState(() {
+                  _isFilterApplied = newValue!;
+                });
+              },
+            ),
+            CheckboxListTile(
+              title: const Text('❤️❤️❤️🤍🤍'),
+              value: _isFilterApplied,
+              onChanged: (bool? newValue) {
+                setState(() {
+                  _isFilterApplied = newValue!;
+                });
+              },
+            ),
+            CheckboxListTile(
+              title: const Text('❤️❤️🤍🤍🤍'),
+              value: _isFilterApplied,
+              onChanged: (bool? newValue) {
+                setState(() {
+                  _isFilterApplied = newValue!;
+                });
+              },
+            ),
+            CheckboxListTile(
+              title: const Text('❤️🤍🤍🤍🤍'),
+              value: _isFilterApplied,
+              onChanged: (bool? newValue) {
+                setState(() {
+                  _isFilterApplied = newValue!;
+                });
+              },
+            ),
+            CheckboxListTile(
+              title: const Text('🤍🤍🤍🤍🤍'),
+              value: _isFilterApplied,
+              onChanged: (bool? newValue) {
+                setState(() {
+                  _isFilterApplied = newValue!;
+                });
+              },
+            ),
+
+            const Divider(),
+
+            CheckboxListTile(
+              title: const Text('動画'),
+              value: _isFilterApplied,
+              onChanged: (bool? newValue) {
+                setState(() {
+                  _isFilterApplied = newValue!;
+                });
+              },
+            ),
+            CheckboxListTile(
+              title: const Text('画像'),
+              value: _isFilterApplied,
+              onChanged: (bool? newValue) {
+                setState(() {
+                  _isFilterApplied = newValue!;
+                });
+              },
+            ),
+            CheckboxListTile(
+              title: const Text('GIF'),
+              value: _isFilterApplied,
+              onChanged: (bool? newValue) {
+                setState(() {
+                  _isFilterApplied = newValue!;
+                });
+              },
+            ),
+
+            const Divider(),
+
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 8.0,
+              ),
+              child: DropdownButtonFormField<String>(
+                decoration: const InputDecoration(
+                  labelText: 'カテゴリ選択',
+                  border: OutlineInputBorder(),
+                ),
+                value: _selectedCategory,
+                hint: const Text('選択してください'),
+                items: _categories.map((String category) {
+                  return DropdownMenuItem<String>(
+                    value: category,
+                    child: Text(category),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _selectedCategory = newValue;
+                  });
+                },
+              ),
+            ),
+
+            const Divider(),
+
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text(
+                'タグで絞り込む',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Wrap(
+                spacing: 8.0,
+                runSpacing: 4.0,
+                children: _allTags.map((String tag) {
+                  return FilterChip(
+                    label: Text(tag),
+                    selected: _selectedTags.contains(tag),
+                    onSelected: (bool selected) {
+                      setState(() {
+                        if (selected) {
+                          _selectedTags.add(tag);
+                        } else {
+                          _selectedTags.remove(tag);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
             ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+      body: Center(
+        // コントローラーが初期化されているか確認
+        child: _controller.value.isInitialized
+            ? AspectRatio(
+                // 動画のアスペクト比を維持
+                aspectRatio: _controller.value.aspectRatio,
+                child: Stack(
+                  alignment: Alignment.bottomCenter,
+                  children: <Widget>[
+                    // 動画表示ウィジェット
+                    VideoPlayer(_controller),
+                    // 再生/一時停止ボタン
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          // 動画を再生/一時停止
+                          _controller.value.isPlaying
+                              ? _controller.pause()
+                              : _controller.play();
+                        });
+                      },
+                      child: CircleAvatar(
+                        radius: 30,
+                        backgroundColor: Colors.black.withOpacity(0.5),
+                        child: Icon(
+                          _controller.value.isPlaying
+                              ? Icons.pause
+                              : Icons.play_arrow,
+                          color: Colors.white,
+                          size: 40,
+                        ),
+                      ),
+                    ),
+                    // 再生プログレスバー
+                    VideoProgressIndicator(
+                      _controller,
+                      allowScrubbing: true, // シーク操作を許可
+                      padding: const EdgeInsets.all(10),
+                    ),
+                  ],
+                ),
+              )
+            // 初期化中はインジケーターを表示
+            : const CircularProgressIndicator(),
+      ),
     );
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    _controller.dispose();
   }
 }
