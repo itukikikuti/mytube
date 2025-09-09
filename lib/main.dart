@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  
+  MediaKit.ensureInitialized();
+
   runApp(const MyApp());
 }
 
@@ -26,7 +28,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   bool _isFilterApplied = false;
 
-  String? _selectedCategory; // null許容にする
+  String? _selectedCategory;
   final List<String> _categories = ['追加順', 'シャッフル', '最近再生した', '再生数', '長さ'];
 
   final List<String> _allTags = [
@@ -107,23 +109,17 @@ class _HomePageState extends State<HomePage> {
   ];
   final Set<String> _selectedTags = {};
 
-  late VideoPlayerController _controller;
+  late final player = Player();
+  late final controller = VideoController(player);
 
   @override
   void initState() {
     super.initState();
-    // ネットワーク上の動画URLでコントローラーを初期化
-    _controller =
-        VideoPlayerController.networkUrl(
-            Uri.parse(
-              'https://flutter.github.io/assets-for-api-docs/assets/videos/butterfly.mp4',
-            ),
-          )
-          ..initialize().then((_) {
-            // 初期化が終わったらUIを更新
-            setState(() {});
-          })
-          ..setLooping(true); // ループ再生を有効に
+    player.open(
+      Media(
+        'https://flutter.github.io/assets-for-api-docs/assets/videos/butterfly.mp4',
+      ),
+    );
   }
 
   @override
@@ -312,56 +308,19 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
       body: Center(
-        // コントローラーが初期化されているか確認
-        child: _controller.value.isInitialized
-            ? AspectRatio(
-                // 動画のアスペクト比を維持
-                aspectRatio: _controller.value.aspectRatio,
-                child: Stack(
-                  alignment: Alignment.bottomCenter,
-                  children: <Widget>[
-                    // 動画表示ウィジェット
-                    VideoPlayer(_controller),
-                    // 再生/一時停止ボタン
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          // 動画を再生/一時停止
-                          _controller.value.isPlaying
-                              ? _controller.pause()
-                              : _controller.play();
-                        });
-                      },
-                      child: CircleAvatar(
-                        radius: 30,
-                        backgroundColor: Colors.black.withOpacity(0.5),
-                        child: Icon(
-                          _controller.value.isPlaying
-                              ? Icons.pause
-                              : Icons.play_arrow,
-                          color: Colors.white,
-                          size: 40,
-                        ),
-                      ),
-                    ),
-                    // 再生プログレスバー
-                    VideoProgressIndicator(
-                      _controller,
-                      allowScrubbing: true, // シーク操作を許可
-                      padding: const EdgeInsets.all(10),
-                    ),
-                  ],
-                ),
-              )
-            // 初期化中はインジケーターを表示
-            : const CircularProgressIndicator(),
+        child: SizedBox(
+          width: MediaQuery.of(context).size.width,
+          height: MediaQuery.of(context).size.width * 9.0 / 16.0,
+          // Use [Video] widget to display video output.
+          child: Video(controller: controller),
+        ),
       ),
     );
   }
 
   @override
   void dispose() {
+    player.dispose();
     super.dispose();
-    _controller.dispose();
   }
 }
