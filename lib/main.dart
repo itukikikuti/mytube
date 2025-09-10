@@ -115,11 +115,10 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    player.open(
-      Media(
-        'https://flutter.github.io/assets-for-api-docs/assets/videos/butterfly.mp4',
-      ),
-    );
+
+    final String filename = 'video.mp4';
+
+    player.open(Media('file://N:/Videos/$filename'));
   }
 
   @override
