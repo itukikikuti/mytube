@@ -1,11 +1,21 @@
+import 'dart:io';
+
+import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:path/path.dart' as path;
+
+import 'database.dart';
+
+// Create a global instance of the database
+late AppDatabase appDatabase;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
-
+  // Initialize the database
+  appDatabase = AppDatabase();
   runApp(const MyApp());
 }
 
@@ -14,7 +24,13 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(home: HomePage());
+    return MaterialApp(
+      title: 'MyTube',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: const HomePage(),
+    );
   }
 }
 
@@ -26,300 +42,271 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  bool _isFilterApplied = false;
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('MyTube'),
+      ),
+      body: const MediaGallery(),
+    );
+  }
+}
 
-  String? _selectedCategory;
-  final List<String> _categories = ['追加順', 'シャッフル', '最近再生した', '再生数', '長さ'];
+class MediaGallery extends StatefulWidget {
+  const MediaGallery({super.key});
 
-  final List<String> _allTags = [
-    'Flutter',
-    'Flustter',
-    'Flutterwef',
-    'Flutteawr',
-    'wf',
-    'Falutter',
-    'Flwefutter',
-    'Flutterff',
-    'Flutter1',
-    'Flutter2',
-    'Flutter3',
-    'Flutter4',
-    'Flutter5',
-    'Flutter6',
-    'Flutter7',
-    'Flutter8',
-    'Fluttererwf',
-    'Flutterfawe',
-    'Fluttesr',
-    'awe',
-    'we',
-    'Fwefwelutter',
-    'Fluttewefr',
-    'weeee',
-    'Fluteetefefer',
-    'weffewe',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Flutter',
-    'Dart',
-    'UI/UX',
-    'Firebase',
-    'Go',
+  @override
+  State<MediaGallery> createState() => _MediaGalleryState();
+}
+
+class _MediaGalleryState extends State<MediaGallery> {
+  List<MediaItem> _mediaFiles = [];
+  bool _isLoading = true;
+  String _statusMessage = '';
+  String? _error;
+
+  final _supportedImageExtensions = [
+    '.jpg',
+    '.jpeg',
+    '.png',
+    '.gif',
+    '.bmp',
+    '.webp'
   ];
-  final Set<String> _selectedTags = {};
-
-  late final player = Player();
-  late final controller = VideoController(player);
+  final _supportedVideoExtensions = [
+    '.mp4',
+    '.mkv',
+    '.avi',
+    '.mov',
+    '.wmv',
+    '.webm'
+  ];
 
   @override
   void initState() {
     super.initState();
+    _scanAndLoadMedia();
+  }
 
-    final String filename = 'video.mp4';
+  Future<void> _scanAndLoadMedia() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+      _statusMessage = 'Starting scan...';
+    });
 
-    player.open(Media('file://N:/Videos/$filename'));
+    try {
+      // 1. Scan directory for files using an async stream
+      const mediaPath = 'N:\\Videos';
+      final directory = Directory(mediaPath);
+      if (!await directory.exists()) {
+        throw Exception('Directory not found: $mediaPath');
+      }
+
+      final filesStream = directory.list();
+      final List<MediaItemsCompanion> newItems = [];
+      int scannedFileCount = 0;
+
+      await for (final file in filesStream) {
+        scannedFileCount++;
+        final extension = path.extension(file.path).toLowerCase();
+        if (_supportedImageExtensions.contains(extension) ||
+            _supportedVideoExtensions.contains(extension)) {
+          try {
+            final stat = await file.stat();
+            newItems.add(
+              MediaItemsCompanion(
+                path: drift.Value(file.path),
+                creationTime: drift.Value(stat.changed), // `changed` is creation time on Windows
+              ),
+            );
+            // Update UI to show which file is being scanned
+            setState(() {
+              _statusMessage = 'Scanning ($scannedFileCount): ${path.basename(file.path)}';
+            });
+          } catch (e) {
+            // Ignore files that can't be stated
+          }
+        }
+      }
+
+      setState(() {
+        _statusMessage = 'Updating database with ${newItems.length} new items...';
+      });
+
+      // 2. Batch insert new items into the database
+      if (newItems.isNotEmpty) {
+        await appDatabase.batch((batch) {
+          batch.insertAll(
+            appDatabase.mediaItems,
+            newItems,
+            mode: drift.InsertMode.insertOrIgnore,
+          );
+        });
+      }
+
+      setState(() {
+        _statusMessage = 'Loading media from database...';
+      });
+
+      // 3. Query all items from the database, sorted by creation time
+      final allItems = await (appDatabase.select(appDatabase.mediaItems)
+            ..orderBy([
+              (t) => drift.OrderingTerm(
+                  expression: t.creationTime, mode: drift.OrderingMode.desc)
+            ]))
+          .get();
+
+      setState(() {
+        _mediaFiles = allItems;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Error: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(_statusMessage, style: Theme.of(context).textTheme.titleMedium),
+          ],
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Text(
+          _error!,
+          style: const TextStyle(color: Colors.red),
+        ),
+      );
+    }
+
+    if (_mediaFiles.isEmpty) {
+      return const Center(child: Text('No media files found in the database.'));
+    }
+
+    return GridView.builder(
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 200,
+        childAspectRatio: 1,
+        crossAxisSpacing: 4,
+        mainAxisSpacing: 4,
+      ),
+      itemCount: _mediaFiles.length,
+      itemBuilder: (context, index) {
+        final mediaItem = _mediaFiles[index];
+        final extension = path.extension(mediaItem.path).toLowerCase();
+        final isVideo = _supportedVideoExtensions.contains(extension);
+
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => MediaDetailPage(
+                  filePath: mediaItem.path,
+                  isVideo: isVideo,
+                ),
+              ),
+            );
+          },
+          child: GridTile(
+            footer: GridTileBar(
+              backgroundColor: Colors.black45,
+              title: Text(
+                path.basename(mediaItem.path),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            child: isVideo
+                ? Container(
+                    color: Colors.black,
+                    child: const Icon(
+                      Icons.play_circle_outline,
+                      color: Colors.white,
+                      size: 50,
+                    ),
+                  )
+                : Image.file(
+                    File(mediaItem.path),
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: Colors.grey[300],
+                        child: const Icon(Icons.broken_image, size: 50),
+                      );
+                    },
+                  ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class MediaDetailPage extends StatefulWidget {
+  final String filePath;
+  final bool isVideo;
+
+  const MediaDetailPage(
+      {super.key, required this.filePath, required this.isVideo});
+
+  @override
+  State<MediaDetailPage> createState() => _MediaDetailPageState();
+}
+
+class _MediaDetailPageState extends State<MediaDetailPage> {
+  late final Player _player;
+  late final VideoController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isVideo) {
+      _player = Player();
+      _controller = VideoController(_player);
+      final uri = Uri.file(widget.filePath, windows: Platform.isWindows);
+      _player.open(Media(uri.toString()));
+    }
+  }
+
+  @override
+  void dispose() {
+    if (widget.isVideo) {
+      _player.dispose();
+    }
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('フィルタリングサイドバー')),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            const SizedBox(height: 50),
-
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: ElevatedButton(
-                onPressed: () {
-                  // ボタンが押された時の処理
-                  // 1. 現在のフィルター状態を取得
-                  final filters = {
-                    'isNewOnly': _isFilterApplied,
-                    'category': _selectedCategory,
-                    'tags': _selectedTags,
-                  };
-                  // 2. コンソールに表示（実際のアプリではここでデータ更新処理を呼ぶ）
-                  print('適用されたフィルター: $filters');
-
-                  // 3. Drawerを閉じる
-                  Navigator.pop(context);
-
-                  // 4. (任意) フィルター適用を伝えるメッセージを表示
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(const SnackBar(content: Text('フィルターを適用しました')));
-                },
-                child: const Text('この条件で絞り込む'),
-              ),
-            ),
-
-            const Divider(),
-
-            CheckboxListTile(
-              title: const Text('❤️❤️❤️❤️❤️'),
-              value: _isFilterApplied,
-              onChanged: (bool? newValue) {
-                setState(() {
-                  _isFilterApplied = newValue!;
-                });
-              },
-            ),
-            CheckboxListTile(
-              title: const Text('❤️❤️❤️❤️🤍'),
-              value: _isFilterApplied,
-              onChanged: (bool? newValue) {
-                setState(() {
-                  _isFilterApplied = newValue!;
-                });
-              },
-            ),
-            CheckboxListTile(
-              title: const Text('❤️❤️❤️🤍🤍'),
-              value: _isFilterApplied,
-              onChanged: (bool? newValue) {
-                setState(() {
-                  _isFilterApplied = newValue!;
-                });
-              },
-            ),
-            CheckboxListTile(
-              title: const Text('❤️❤️🤍🤍🤍'),
-              value: _isFilterApplied,
-              onChanged: (bool? newValue) {
-                setState(() {
-                  _isFilterApplied = newValue!;
-                });
-              },
-            ),
-            CheckboxListTile(
-              title: const Text('❤️🤍🤍🤍🤍'),
-              value: _isFilterApplied,
-              onChanged: (bool? newValue) {
-                setState(() {
-                  _isFilterApplied = newValue!;
-                });
-              },
-            ),
-            CheckboxListTile(
-              title: const Text('🤍🤍🤍🤍🤍'),
-              value: _isFilterApplied,
-              onChanged: (bool? newValue) {
-                setState(() {
-                  _isFilterApplied = newValue!;
-                });
-              },
-            ),
-
-            const Divider(),
-
-            CheckboxListTile(
-              title: const Text('動画'),
-              value: _isFilterApplied,
-              onChanged: (bool? newValue) {
-                setState(() {
-                  _isFilterApplied = newValue!;
-                });
-              },
-            ),
-            CheckboxListTile(
-              title: const Text('画像'),
-              value: _isFilterApplied,
-              onChanged: (bool? newValue) {
-                setState(() {
-                  _isFilterApplied = newValue!;
-                });
-              },
-            ),
-            CheckboxListTile(
-              title: const Text('GIF'),
-              value: _isFilterApplied,
-              onChanged: (bool? newValue) {
-                setState(() {
-                  _isFilterApplied = newValue!;
-                });
-              },
-            ),
-
-            const Divider(),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 8.0,
-              ),
-              child: DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: 'カテゴリ選択',
-                  border: OutlineInputBorder(),
-                ),
-                value: _selectedCategory,
-                hint: const Text('選択してください'),
-                items: _categories.map((String category) {
-                  return DropdownMenuItem<String>(
-                    value: category,
-                    child: Text(category),
-                  );
-                }).toList(),
-                onChanged: (String? newValue) {
-                  setState(() {
-                    _selectedCategory = newValue;
-                  });
-                },
-              ),
-            ),
-
-            const Divider(),
-
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
-                'タグで絞り込む',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Wrap(
-                spacing: 8.0,
-                runSpacing: 4.0,
-                children: _allTags.map((String tag) {
-                  return FilterChip(
-                    label: Text(tag),
-                    selected: _selectedTags.contains(tag),
-                    onSelected: (bool selected) {
-                      setState(() {
-                        if (selected) {
-                          _selectedTags.add(tag);
-                        } else {
-                          _selectedTags.remove(tag);
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
-              ),
-            ),
-          ],
-        ),
+      appBar: AppBar(
+        title: Text(path.basename(widget.filePath)),
+        backgroundColor: Colors.black,
       ),
+      backgroundColor: Colors.black,
       body: Center(
-        child: SizedBox(
-          width: MediaQuery.of(context).size.width,
-          height: MediaQuery.of(context).size.width * 9.0 / 16.0,
-          // Use [Video] widget to display video output.
-          child: Video(controller: controller),
-        ),
+        child: widget.isVideo
+            ? Video(controller: _controller)
+            : InteractiveViewer(
+                child: Image.file(File(widget.filePath)),
+              ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    player.dispose();
-    super.dispose();
   }
 }
