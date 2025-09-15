@@ -1,37 +1,29 @@
 import 'dart:convert';
-import 'dart:io';
-
+// import 'dart:io';
 import 'package:drift/drift.dart';
-import 'package:drift/native.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
+// import 'package:drift/native.dart';
+// import 'package:path_provider/path_provider.dart';
+// import 'package:path/path.dart' as p;
 
 part 'database.g.dart';
 
-// Define the table
-class MediaItems extends Table {
+@DataClassName('VideoItem')
+class VideoItems extends Table {
   IntColumn get id => integer().autoIncrement()();
-  TextColumn get path => text().unique()();
-  DateTimeColumn get creationTime => dateTime()();
-  TextColumn get title => text().nullable()();
-  IntColumn get duration => integer().nullable()();
-  IntColumn get rate => integer().nullable()();
-  TextColumn get tags => text().map(const ListOfStringsConverter()).nullable()();
+  TextColumn get title => text()();
+  TextColumn get path => text()();
+  DateTimeColumn get date => dateTime()();
+  IntColumn get duration => integer()();
+  IntColumn get rate => integer()();
+  TextColumn get tags => text().map(const ListConverter())();
+  TextColumn get thumbs => text().map(const ListConverter())();
 }
 
-class ListOfStringsConverter extends TypeConverter<List<String>, String> {
-  const ListOfStringsConverter();
+class ListConverter extends TypeConverter<List<String>, String> {
+  const ListConverter();
   @override
   List<String> fromSql(String fromDb) {
-    try {
-      final decoded = json.decode(fromDb);
-      if (decoded is List) {
-        return decoded.cast<String>();
-      }
-      return [];
-    } catch (e) {
-      return [];
-    }
+    return (json.decode(fromDb) as List<dynamic>).cast<String>();
   }
 
   @override
@@ -40,37 +32,19 @@ class ListOfStringsConverter extends TypeConverter<List<String>, String> {
   }
 }
 
-@DriftDatabase(tables: [MediaItems])
+@DriftDatabase(tables: [VideoItems])
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(_openConnection());
+  AppDatabase(QueryExecutor e) : super(e);
+  // AppDatabase.connect() : super(_openConnection());
 
   @override
-  int get schemaVersion => 2; // Bump the schema version
-
-  @override
-  MigrationStrategy get migration {
-    return MigrationStrategy(
-      onCreate: (Migrator m) async {
-        await m.createAll();
-      },
-      onUpgrade: (Migrator m, int from, int to) async {
-        if (from < 2) {
-          // we added the title, duration, rate and tags columns in version 2
-          await m.addColumn(mediaItems, mediaItems.title);
-          await m.addColumn(mediaItems, mediaItems.duration);
-          await m.addColumn(mediaItems, mediaItems.rate);
-          await m.addColumn(mediaItems, mediaItems.tags);
-        }
-      },
-    );
-  }
+  int get schemaVersion => 1;
 }
 
-LazyDatabase _openConnection() {
-  // the LazyDatabase util lets us find the right location for the file async.
-  return LazyDatabase(() async {
-    final dbFolder = await getApplicationDocumentsDirectory();
-    final file = File(p.join(dbFolder.path, 'db.sqlite'));
-    return NativeDatabase.createInBackground(file);
-  });
-}
+// LazyDatabase _openConnection() {
+//   return LazyDatabase(() async {
+//     final dbFolder = await getApplicationDocumentsDirectory();
+//     final file = File(p.join(dbFolder.path, 'db.sqlite'));
+//     return NativeDatabase.createInBackground(file);
+//   });
+// }

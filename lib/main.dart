@@ -1,21 +1,22 @@
 import 'dart:io';
-
+import 'dart:convert';
 import 'package:drift/drift.dart' as drift;
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:carousel_slider/carousel_slider.dart';
 import 'package:path/path.dart' as path;
 
 import 'database.dart';
 
-// Create a global instance of the database
 late AppDatabase appDatabase;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
-  // Initialize the database
-  appDatabase = AppDatabase();
+  final dbFile = File('db.sqlite'); 
+  appDatabase = AppDatabase(NativeDatabase(dbFile));
   runApp(const MyApp());
 }
 
@@ -61,7 +62,7 @@ class MediaGallery extends StatefulWidget {
 }
 
 class _MediaGalleryState extends State<MediaGallery> {
-  List<MediaItem> _mediaFiles = [];
+  List<VideoItem> _mediaFiles = [];
   bool _isLoading = true;
   String _statusMessage = '';
   String? _error;
@@ -97,64 +98,63 @@ class _MediaGalleryState extends State<MediaGallery> {
     });
 
     try {
-      // 1. Scan directory for files using an async stream
-      const mediaPath = 'N:\\Videos';
-      final directory = Directory(mediaPath);
-      if (!await directory.exists()) {
-        throw Exception('Directory not found: $mediaPath');
-      }
+      // // 1. Scan directory for files using an async stream
+      // const mediaPath = 'N:\\Videos';
+      // final directory = Directory(mediaPath);
+      // if (!await directory.exists()) {
+      //   throw Exception('Directory not found: $mediaPath');
+      // }
 
-      final filesStream = directory.list();
-      final List<MediaItemsCompanion> newItems = [];
-      int scannedFileCount = 0;
+      // final filesStream = directory.list();
+      // final List<VideoItemsCompanion> newItems = [];
+      // int scannedFileCount = 0;
 
-      await for (final file in filesStream) {
-        scannedFileCount++;
-        final extension = path.extension(file.path).toLowerCase();
-        if (_supportedImageExtensions.contains(extension) ||
-            _supportedVideoExtensions.contains(extension)) {
-          try {
-            final stat = await file.stat();
-            newItems.add(
-              MediaItemsCompanion(
-                path: drift.Value(file.path),
-                creationTime: drift.Value(stat.changed), // `changed` is creation time on Windows
-              ),
-            );
-            // Update UI to show which file is being scanned
-            setState(() {
-              _statusMessage = 'Scanning ($scannedFileCount): ${path.basename(file.path)}';
-            });
-          } catch (e) {
-            // Ignore files that can't be stated
-          }
-        }
-      }
+      // await for (final file in filesStream) {
+      //   scannedFileCount++;
+      //   final extension = path.extension(file.path).toLowerCase();
+      //   if (_supportedImageExtensions.contains(extension) ||
+      //       _supportedVideoExtensions.contains(extension)) {
+      //     try {
+      //       final stat = await file.stat();
+      //       newItems.add(
+      //         VideoItemsCompanion(
+      //           path: drift.Value(file.path),
+      //           date: drift.Value(stat.changed), // `changed` is creation time on Windows
+      //         ),
+      //       );
+      //       // Update UI to show which file is being scanned
+      //       setState(() {
+      //         _statusMessage = 'Scanning ($scannedFileCount): ${path.basename(file.path)}';
+      //       });
+      //     } catch (e) {
+      //       // Ignore files that can't be stated
+      //     }
+      //   }
+      // }
 
-      setState(() {
-        _statusMessage = 'Updating database with ${newItems.length} new items...';
-      });
+      // setState(() {
+      //   _statusMessage = 'Updating database with ${newItems.length} new items...';
+      // });
 
-      // 2. Batch insert new items into the database
-      if (newItems.isNotEmpty) {
-        await appDatabase.batch((batch) {
-          batch.insertAll(
-            appDatabase.mediaItems,
-            newItems,
-            mode: drift.InsertMode.insertOrIgnore,
-          );
-        });
-      }
+      // // 2. Batch insert new items into the database
+      // if (newItems.isNotEmpty) {
+      //   await appDatabase.batch((batch) {
+      //     batch.insertAll(
+      //       appDatabase.videoItems,
+      //       newItems,
+      //       mode: drift.InsertMode.insertOrIgnore,
+      //     );
+      //   });
+      // }
 
-      setState(() {
-        _statusMessage = 'Loading media from database...';
-      });
+      // setState(() {
+      //   _statusMessage = 'Loading media from database...';
+      // });
 
-      // 3. Query all items from the database, sorted by creation time
-      final allItems = await (appDatabase.select(appDatabase.mediaItems)
+      final allItems = await (appDatabase.select(appDatabase.videoItems)
             ..orderBy([
               (t) => drift.OrderingTerm(
-                  expression: t.creationTime, mode: drift.OrderingMode.desc)
+                  expression: t.date, mode: drift.OrderingMode.desc)
             ]))
           .get();
 
@@ -200,8 +200,8 @@ class _MediaGalleryState extends State<MediaGallery> {
 
     return GridView.builder(
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 200,
-        childAspectRatio: 1,
+        maxCrossAxisExtent: 300,
+        childAspectRatio: 16 / 9,
         crossAxisSpacing: 4,
         mainAxisSpacing: 4,
       ),
@@ -233,17 +233,38 @@ class _MediaGalleryState extends State<MediaGallery> {
               ),
             ),
             child: isVideo
-                ? Container(
-                    color: Colors.black,
-                    child: const Icon(
-                      Icons.play_circle_outline,
-                      color: Colors.white,
-                      size: 50,
-                    ),
-                  )
+                ? mediaItem.thumbs.isEmpty
+                    ? Container(
+                        color: Colors.black,
+                        child: const Icon(
+                          Icons.play_circle_outline,
+                          color: Colors.white,
+                          size: 50,
+                        ),
+                      )
+                    : mediaItem.thumbs.length == 1
+                        ? Image.memory(
+                            base64Decode(mediaItem.thumbs.first),
+                            fit: BoxFit.fitHeight,
+                          )
+                        : CarouselSlider.builder(
+                            itemCount: mediaItem.thumbs.length,
+                            itemBuilder: (context, itemIndex, pageViewIndex) {
+                              return Image.memory(
+                                base64Decode(mediaItem.thumbs[itemIndex]),
+                                fit: BoxFit.fitHeight,
+                              );
+                            },
+                            options: CarouselOptions(
+                              height: double.infinity,
+                              viewportFraction: 1.0,
+                              aspectRatio: 1.0,
+                              autoPlay: true,
+                            ),
+                          )
                 : Image.file(
                     File(mediaItem.path),
-                    fit: BoxFit.cover,
+                    fit: BoxFit.fitHeight,
                     errorBuilder: (context, error, stackTrace) {
                       return Container(
                         color: Colors.grey[300],
@@ -297,7 +318,7 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(path.basename(widget.filePath)),
-        backgroundColor: Colors.black,
+        // backgroundColor: Colors.black,
       ),
       backgroundColor: Colors.black,
       body: Center(

@@ -3,12 +3,12 @@
 part of 'database.dart';
 
 // ignore_for_file: type=lint
-class $MediaItemsTable extends MediaItems
-    with TableInfo<$MediaItemsTable, MediaItem> {
+class $VideoItemsTable extends VideoItems
+    with TableInfo<$VideoItemsTable, VideoItem> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
-  $MediaItemsTable(this.attachedDatabase, [this._alias]);
+  $VideoItemsTable(this.attachedDatabase, [this._alias]);
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<int> id = GeneratedColumn<int>(
@@ -22,6 +22,15 @@ class $MediaItemsTable extends MediaItems
       'PRIMARY KEY AUTOINCREMENT',
     ),
   );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
   static const VerificationMeta _pathMeta = const VerificationMeta('path');
   @override
   late final GeneratedColumn<String> path = GeneratedColumn<String>(
@@ -30,27 +39,15 @@ class $MediaItemsTable extends MediaItems
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
   );
-  static const VerificationMeta _creationTimeMeta = const VerificationMeta(
-    'creationTime',
-  );
+  static const VerificationMeta _dateMeta = const VerificationMeta('date');
   @override
-  late final GeneratedColumn<DateTime> creationTime = GeneratedColumn<DateTime>(
-    'creation_time',
+  late final GeneratedColumn<DateTime> date = GeneratedColumn<DateTime>(
+    'date',
     aliasedName,
     false,
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
-  );
-  static const VerificationMeta _titleMeta = const VerificationMeta('title');
-  @override
-  late final GeneratedColumn<String> title = GeneratedColumn<String>(
-    'title',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
   );
   static const VerificationMeta _durationMeta = const VerificationMeta(
     'duration',
@@ -59,52 +56,70 @@ class $MediaItemsTable extends MediaItems
   late final GeneratedColumn<int> duration = GeneratedColumn<int>(
     'duration',
     aliasedName,
-    true,
+    false,
     type: DriftSqlType.int,
-    requiredDuringInsert: false,
+    requiredDuringInsert: true,
   );
   static const VerificationMeta _rateMeta = const VerificationMeta('rate');
   @override
   late final GeneratedColumn<int> rate = GeneratedColumn<int>(
     'rate',
     aliasedName,
-    true,
+    false,
     type: DriftSqlType.int,
-    requiredDuringInsert: false,
+    requiredDuringInsert: true,
   );
   @override
-  late final GeneratedColumnWithTypeConverter<List<String>?, String> tags =
+  late final GeneratedColumnWithTypeConverter<List<String>, String> tags =
       GeneratedColumn<String>(
         'tags',
         aliasedName,
-        true,
+        false,
         type: DriftSqlType.string,
-        requiredDuringInsert: false,
-      ).withConverter<List<String>?>($MediaItemsTable.$convertertagsn);
+        requiredDuringInsert: true,
+      ).withConverter<List<String>>($VideoItemsTable.$convertertags);
+  @override
+  late final GeneratedColumnWithTypeConverter<List<String>, String> thumbs =
+      GeneratedColumn<String>(
+        'thumbs',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<List<String>>($VideoItemsTable.$converterthumbs);
   @override
   List<GeneratedColumn> get $columns => [
     id,
-    path,
-    creationTime,
     title,
+    path,
+    date,
     duration,
     rate,
     tags,
+    thumbs,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
   String get actualTableName => $name;
-  static const String $name = 'media_items';
+  static const String $name = 'video_items';
   @override
   VerificationContext validateIntegrity(
-    Insertable<MediaItem> instance, {
+    Insertable<VideoItem> instance, {
     bool isInserting = false,
   }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
     }
     if (data.containsKey('path')) {
       context.handle(
@@ -114,34 +129,29 @@ class $MediaItemsTable extends MediaItems
     } else if (isInserting) {
       context.missing(_pathMeta);
     }
-    if (data.containsKey('creation_time')) {
+    if (data.containsKey('date')) {
       context.handle(
-        _creationTimeMeta,
-        creationTime.isAcceptableOrUnknown(
-          data['creation_time']!,
-          _creationTimeMeta,
-        ),
+        _dateMeta,
+        date.isAcceptableOrUnknown(data['date']!, _dateMeta),
       );
     } else if (isInserting) {
-      context.missing(_creationTimeMeta);
-    }
-    if (data.containsKey('title')) {
-      context.handle(
-        _titleMeta,
-        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
-      );
+      context.missing(_dateMeta);
     }
     if (data.containsKey('duration')) {
       context.handle(
         _durationMeta,
         duration.isAcceptableOrUnknown(data['duration']!, _durationMeta),
       );
+    } else if (isInserting) {
+      context.missing(_durationMeta);
     }
     if (data.containsKey('rate')) {
       context.handle(
         _rateMeta,
         rate.isAcceptableOrUnknown(data['rate']!, _rateMeta),
       );
+    } else if (isInserting) {
+      context.missing(_rateMeta);
     }
     return context;
   }
@@ -149,122 +159,127 @@ class $MediaItemsTable extends MediaItems
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  MediaItem map(Map<String, dynamic> data, {String? tablePrefix}) {
+  VideoItem map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return MediaItem(
+    return VideoItem(
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}id'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
       )!,
       path: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}path'],
       )!,
-      creationTime: attachedDatabase.typeMapping.read(
+      date: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
-        data['${effectivePrefix}creation_time'],
+        data['${effectivePrefix}date'],
       )!,
-      title: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}title'],
-      ),
       duration: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}duration'],
-      ),
+      )!,
       rate: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}rate'],
-      ),
-      tags: $MediaItemsTable.$convertertagsn.fromSql(
+      )!,
+      tags: $VideoItemsTable.$convertertags.fromSql(
         attachedDatabase.typeMapping.read(
           DriftSqlType.string,
           data['${effectivePrefix}tags'],
-        ),
+        )!,
+      ),
+      thumbs: $VideoItemsTable.$converterthumbs.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}thumbs'],
+        )!,
       ),
     );
   }
 
   @override
-  $MediaItemsTable createAlias(String alias) {
-    return $MediaItemsTable(attachedDatabase, alias);
+  $VideoItemsTable createAlias(String alias) {
+    return $VideoItemsTable(attachedDatabase, alias);
   }
 
   static TypeConverter<List<String>, String> $convertertags =
-      const ListOfStringsConverter();
-  static TypeConverter<List<String>?, String?> $convertertagsn =
-      NullAwareTypeConverter.wrap($convertertags);
+      const ListConverter();
+  static TypeConverter<List<String>, String> $converterthumbs =
+      const ListConverter();
 }
 
-class MediaItem extends DataClass implements Insertable<MediaItem> {
+class VideoItem extends DataClass implements Insertable<VideoItem> {
   final int id;
+  final String title;
   final String path;
-  final DateTime creationTime;
-  final String? title;
-  final int? duration;
-  final int? rate;
-  final List<String>? tags;
-  const MediaItem({
+  final DateTime date;
+  final int duration;
+  final int rate;
+  final List<String> tags;
+  final List<String> thumbs;
+  const VideoItem({
     required this.id,
+    required this.title,
     required this.path,
-    required this.creationTime,
-    this.title,
-    this.duration,
-    this.rate,
-    this.tags,
+    required this.date,
+    required this.duration,
+    required this.rate,
+    required this.tags,
+    required this.thumbs,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
+    map['title'] = Variable<String>(title);
     map['path'] = Variable<String>(path);
-    map['creation_time'] = Variable<DateTime>(creationTime);
-    if (!nullToAbsent || title != null) {
-      map['title'] = Variable<String>(title);
-    }
-    if (!nullToAbsent || duration != null) {
-      map['duration'] = Variable<int>(duration);
-    }
-    if (!nullToAbsent || rate != null) {
-      map['rate'] = Variable<int>(rate);
-    }
-    if (!nullToAbsent || tags != null) {
+    map['date'] = Variable<DateTime>(date);
+    map['duration'] = Variable<int>(duration);
+    map['rate'] = Variable<int>(rate);
+    {
       map['tags'] = Variable<String>(
-        $MediaItemsTable.$convertertagsn.toSql(tags),
+        $VideoItemsTable.$convertertags.toSql(tags),
+      );
+    }
+    {
+      map['thumbs'] = Variable<String>(
+        $VideoItemsTable.$converterthumbs.toSql(thumbs),
       );
     }
     return map;
   }
 
-  MediaItemsCompanion toCompanion(bool nullToAbsent) {
-    return MediaItemsCompanion(
+  VideoItemsCompanion toCompanion(bool nullToAbsent) {
+    return VideoItemsCompanion(
       id: Value(id),
+      title: Value(title),
       path: Value(path),
-      creationTime: Value(creationTime),
-      title: title == null && nullToAbsent
-          ? const Value.absent()
-          : Value(title),
-      duration: duration == null && nullToAbsent
-          ? const Value.absent()
-          : Value(duration),
-      rate: rate == null && nullToAbsent ? const Value.absent() : Value(rate),
-      tags: tags == null && nullToAbsent ? const Value.absent() : Value(tags),
+      date: Value(date),
+      duration: Value(duration),
+      rate: Value(rate),
+      tags: Value(tags),
+      thumbs: Value(thumbs),
     );
   }
 
-  factory MediaItem.fromJson(
+  factory VideoItem.fromJson(
     Map<String, dynamic> json, {
     ValueSerializer? serializer,
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return MediaItem(
+    return VideoItem(
       id: serializer.fromJson<int>(json['id']),
+      title: serializer.fromJson<String>(json['title']),
       path: serializer.fromJson<String>(json['path']),
-      creationTime: serializer.fromJson<DateTime>(json['creationTime']),
-      title: serializer.fromJson<String?>(json['title']),
-      duration: serializer.fromJson<int?>(json['duration']),
-      rate: serializer.fromJson<int?>(json['rate']),
-      tags: serializer.fromJson<List<String>?>(json['tags']),
+      date: serializer.fromJson<DateTime>(json['date']),
+      duration: serializer.fromJson<int>(json['duration']),
+      rate: serializer.fromJson<int>(json['rate']),
+      tags: serializer.fromJson<List<String>>(json['tags']),
+      thumbs: serializer.fromJson<List<String>>(json['thumbs']),
     );
   }
   @override
@@ -272,140 +287,156 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
+      'title': serializer.toJson<String>(title),
       'path': serializer.toJson<String>(path),
-      'creationTime': serializer.toJson<DateTime>(creationTime),
-      'title': serializer.toJson<String?>(title),
-      'duration': serializer.toJson<int?>(duration),
-      'rate': serializer.toJson<int?>(rate),
-      'tags': serializer.toJson<List<String>?>(tags),
+      'date': serializer.toJson<DateTime>(date),
+      'duration': serializer.toJson<int>(duration),
+      'rate': serializer.toJson<int>(rate),
+      'tags': serializer.toJson<List<String>>(tags),
+      'thumbs': serializer.toJson<List<String>>(thumbs),
     };
   }
 
-  MediaItem copyWith({
+  VideoItem copyWith({
     int? id,
+    String? title,
     String? path,
-    DateTime? creationTime,
-    Value<String?> title = const Value.absent(),
-    Value<int?> duration = const Value.absent(),
-    Value<int?> rate = const Value.absent(),
-    Value<List<String>?> tags = const Value.absent(),
-  }) => MediaItem(
+    DateTime? date,
+    int? duration,
+    int? rate,
+    List<String>? tags,
+    List<String>? thumbs,
+  }) => VideoItem(
     id: id ?? this.id,
+    title: title ?? this.title,
     path: path ?? this.path,
-    creationTime: creationTime ?? this.creationTime,
-    title: title.present ? title.value : this.title,
-    duration: duration.present ? duration.value : this.duration,
-    rate: rate.present ? rate.value : this.rate,
-    tags: tags.present ? tags.value : this.tags,
+    date: date ?? this.date,
+    duration: duration ?? this.duration,
+    rate: rate ?? this.rate,
+    tags: tags ?? this.tags,
+    thumbs: thumbs ?? this.thumbs,
   );
-  MediaItem copyWithCompanion(MediaItemsCompanion data) {
-    return MediaItem(
+  VideoItem copyWithCompanion(VideoItemsCompanion data) {
+    return VideoItem(
       id: data.id.present ? data.id.value : this.id,
-      path: data.path.present ? data.path.value : this.path,
-      creationTime: data.creationTime.present
-          ? data.creationTime.value
-          : this.creationTime,
       title: data.title.present ? data.title.value : this.title,
+      path: data.path.present ? data.path.value : this.path,
+      date: data.date.present ? data.date.value : this.date,
       duration: data.duration.present ? data.duration.value : this.duration,
       rate: data.rate.present ? data.rate.value : this.rate,
       tags: data.tags.present ? data.tags.value : this.tags,
+      thumbs: data.thumbs.present ? data.thumbs.value : this.thumbs,
     );
   }
 
   @override
   String toString() {
-    return (StringBuffer('MediaItem(')
+    return (StringBuffer('VideoItem(')
           ..write('id: $id, ')
-          ..write('path: $path, ')
-          ..write('creationTime: $creationTime, ')
           ..write('title: $title, ')
+          ..write('path: $path, ')
+          ..write('date: $date, ')
           ..write('duration: $duration, ')
           ..write('rate: $rate, ')
-          ..write('tags: $tags')
+          ..write('tags: $tags, ')
+          ..write('thumbs: $thumbs')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode =>
-      Object.hash(id, path, creationTime, title, duration, rate, tags);
+      Object.hash(id, title, path, date, duration, rate, tags, thumbs);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is MediaItem &&
+      (other is VideoItem &&
           other.id == this.id &&
-          other.path == this.path &&
-          other.creationTime == this.creationTime &&
           other.title == this.title &&
+          other.path == this.path &&
+          other.date == this.date &&
           other.duration == this.duration &&
           other.rate == this.rate &&
-          other.tags == this.tags);
+          other.tags == this.tags &&
+          other.thumbs == this.thumbs);
 }
 
-class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
+class VideoItemsCompanion extends UpdateCompanion<VideoItem> {
   final Value<int> id;
+  final Value<String> title;
   final Value<String> path;
-  final Value<DateTime> creationTime;
-  final Value<String?> title;
-  final Value<int?> duration;
-  final Value<int?> rate;
-  final Value<List<String>?> tags;
-  const MediaItemsCompanion({
+  final Value<DateTime> date;
+  final Value<int> duration;
+  final Value<int> rate;
+  final Value<List<String>> tags;
+  final Value<List<String>> thumbs;
+  const VideoItemsCompanion({
     this.id = const Value.absent(),
+    this.title = const Value.absent(),
     this.path = const Value.absent(),
-    this.creationTime = const Value.absent(),
-    this.title = const Value.absent(),
+    this.date = const Value.absent(),
     this.duration = const Value.absent(),
     this.rate = const Value.absent(),
     this.tags = const Value.absent(),
+    this.thumbs = const Value.absent(),
   });
-  MediaItemsCompanion.insert({
+  VideoItemsCompanion.insert({
     this.id = const Value.absent(),
+    required String title,
     required String path,
-    required DateTime creationTime,
-    this.title = const Value.absent(),
-    this.duration = const Value.absent(),
-    this.rate = const Value.absent(),
-    this.tags = const Value.absent(),
-  }) : path = Value(path),
-       creationTime = Value(creationTime);
-  static Insertable<MediaItem> custom({
+    required DateTime date,
+    required int duration,
+    required int rate,
+    required List<String> tags,
+    required List<String> thumbs,
+  }) : title = Value(title),
+       path = Value(path),
+       date = Value(date),
+       duration = Value(duration),
+       rate = Value(rate),
+       tags = Value(tags),
+       thumbs = Value(thumbs);
+  static Insertable<VideoItem> custom({
     Expression<int>? id,
-    Expression<String>? path,
-    Expression<DateTime>? creationTime,
     Expression<String>? title,
+    Expression<String>? path,
+    Expression<DateTime>? date,
     Expression<int>? duration,
     Expression<int>? rate,
     Expression<String>? tags,
+    Expression<String>? thumbs,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
-      if (path != null) 'path': path,
-      if (creationTime != null) 'creation_time': creationTime,
       if (title != null) 'title': title,
+      if (path != null) 'path': path,
+      if (date != null) 'date': date,
       if (duration != null) 'duration': duration,
       if (rate != null) 'rate': rate,
       if (tags != null) 'tags': tags,
+      if (thumbs != null) 'thumbs': thumbs,
     });
   }
 
-  MediaItemsCompanion copyWith({
+  VideoItemsCompanion copyWith({
     Value<int>? id,
+    Value<String>? title,
     Value<String>? path,
-    Value<DateTime>? creationTime,
-    Value<String?>? title,
-    Value<int?>? duration,
-    Value<int?>? rate,
-    Value<List<String>?>? tags,
+    Value<DateTime>? date,
+    Value<int>? duration,
+    Value<int>? rate,
+    Value<List<String>>? tags,
+    Value<List<String>>? thumbs,
   }) {
-    return MediaItemsCompanion(
+    return VideoItemsCompanion(
       id: id ?? this.id,
-      path: path ?? this.path,
-      creationTime: creationTime ?? this.creationTime,
       title: title ?? this.title,
+      path: path ?? this.path,
+      date: date ?? this.date,
       duration: duration ?? this.duration,
       rate: rate ?? this.rate,
       tags: tags ?? this.tags,
+      thumbs: thumbs ?? this.thumbs,
     );
   }
 
@@ -415,14 +446,14 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
     if (id.present) {
       map['id'] = Variable<int>(id.value);
     }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
     if (path.present) {
       map['path'] = Variable<String>(path.value);
     }
-    if (creationTime.present) {
-      map['creation_time'] = Variable<DateTime>(creationTime.value);
-    }
-    if (title.present) {
-      map['title'] = Variable<String>(title.value);
+    if (date.present) {
+      map['date'] = Variable<DateTime>(date.value);
     }
     if (duration.present) {
       map['duration'] = Variable<int>(duration.value);
@@ -432,7 +463,12 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
     }
     if (tags.present) {
       map['tags'] = Variable<String>(
-        $MediaItemsTable.$convertertagsn.toSql(tags.value),
+        $VideoItemsTable.$convertertags.toSql(tags.value),
+      );
+    }
+    if (thumbs.present) {
+      map['thumbs'] = Variable<String>(
+        $VideoItemsTable.$converterthumbs.toSql(thumbs.value),
       );
     }
     return map;
@@ -440,14 +476,15 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
 
   @override
   String toString() {
-    return (StringBuffer('MediaItemsCompanion(')
+    return (StringBuffer('VideoItemsCompanion(')
           ..write('id: $id, ')
-          ..write('path: $path, ')
-          ..write('creationTime: $creationTime, ')
           ..write('title: $title, ')
+          ..write('path: $path, ')
+          ..write('date: $date, ')
           ..write('duration: $duration, ')
           ..write('rate: $rate, ')
-          ..write('tags: $tags')
+          ..write('tags: $tags, ')
+          ..write('thumbs: $thumbs')
           ..write(')'))
         .toString();
   }
@@ -456,38 +493,40 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
-  late final $MediaItemsTable mediaItems = $MediaItemsTable(this);
+  late final $VideoItemsTable videoItems = $VideoItemsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities => [mediaItems];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [videoItems];
 }
 
-typedef $$MediaItemsTableCreateCompanionBuilder =
-    MediaItemsCompanion Function({
+typedef $$VideoItemsTableCreateCompanionBuilder =
+    VideoItemsCompanion Function({
       Value<int> id,
+      required String title,
       required String path,
-      required DateTime creationTime,
-      Value<String?> title,
-      Value<int?> duration,
-      Value<int?> rate,
-      Value<List<String>?> tags,
+      required DateTime date,
+      required int duration,
+      required int rate,
+      required List<String> tags,
+      required List<String> thumbs,
     });
-typedef $$MediaItemsTableUpdateCompanionBuilder =
-    MediaItemsCompanion Function({
+typedef $$VideoItemsTableUpdateCompanionBuilder =
+    VideoItemsCompanion Function({
       Value<int> id,
+      Value<String> title,
       Value<String> path,
-      Value<DateTime> creationTime,
-      Value<String?> title,
-      Value<int?> duration,
-      Value<int?> rate,
-      Value<List<String>?> tags,
+      Value<DateTime> date,
+      Value<int> duration,
+      Value<int> rate,
+      Value<List<String>> tags,
+      Value<List<String>> thumbs,
     });
 
-class $$MediaItemsTableFilterComposer
-    extends Composer<_$AppDatabase, $MediaItemsTable> {
-  $$MediaItemsTableFilterComposer({
+class $$VideoItemsTableFilterComposer
+    extends Composer<_$AppDatabase, $VideoItemsTable> {
+  $$VideoItemsTableFilterComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -499,18 +538,18 @@ class $$MediaItemsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get path => $composableBuilder(
     column: $table.path,
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<DateTime> get creationTime => $composableBuilder(
-    column: $table.creationTime,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get title => $composableBuilder(
-    column: $table.title,
+  ColumnFilters<DateTime> get date => $composableBuilder(
+    column: $table.date,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -524,16 +563,22 @@ class $$MediaItemsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnWithTypeConverterFilters<List<String>?, List<String>, String>
-  get tags => $composableBuilder(
-    column: $table.tags,
+  ColumnWithTypeConverterFilters<List<String>, List<String>, String> get tags =>
+      $composableBuilder(
+        column: $table.tags,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnWithTypeConverterFilters<List<String>, List<String>, String>
+  get thumbs => $composableBuilder(
+    column: $table.thumbs,
     builder: (column) => ColumnWithTypeConverterFilters(column),
   );
 }
 
-class $$MediaItemsTableOrderingComposer
-    extends Composer<_$AppDatabase, $MediaItemsTable> {
-  $$MediaItemsTableOrderingComposer({
+class $$VideoItemsTableOrderingComposer
+    extends Composer<_$AppDatabase, $VideoItemsTable> {
+  $$VideoItemsTableOrderingComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -545,18 +590,18 @@ class $$MediaItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get path => $composableBuilder(
     column: $table.path,
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<DateTime> get creationTime => $composableBuilder(
-    column: $table.creationTime,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get title => $composableBuilder(
-    column: $table.title,
+  ColumnOrderings<DateTime> get date => $composableBuilder(
+    column: $table.date,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -574,11 +619,16 @@ class $$MediaItemsTableOrderingComposer
     column: $table.tags,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get thumbs => $composableBuilder(
+    column: $table.thumbs,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
-class $$MediaItemsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $MediaItemsTable> {
-  $$MediaItemsTableAnnotationComposer({
+class $$VideoItemsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $VideoItemsTable> {
+  $$VideoItemsTableAnnotationComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -588,16 +638,14 @@ class $$MediaItemsTableAnnotationComposer
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
   GeneratedColumn<String> get path =>
       $composableBuilder(column: $table.path, builder: (column) => column);
 
-  GeneratedColumn<DateTime> get creationTime => $composableBuilder(
-    column: $table.creationTime,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get title =>
-      $composableBuilder(column: $table.title, builder: (column) => column);
+  GeneratedColumn<DateTime> get date =>
+      $composableBuilder(column: $table.date, builder: (column) => column);
 
   GeneratedColumn<int> get duration =>
       $composableBuilder(column: $table.duration, builder: (column) => column);
@@ -605,74 +653,81 @@ class $$MediaItemsTableAnnotationComposer
   GeneratedColumn<int> get rate =>
       $composableBuilder(column: $table.rate, builder: (column) => column);
 
-  GeneratedColumnWithTypeConverter<List<String>?, String> get tags =>
+  GeneratedColumnWithTypeConverter<List<String>, String> get tags =>
       $composableBuilder(column: $table.tags, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<List<String>, String> get thumbs =>
+      $composableBuilder(column: $table.thumbs, builder: (column) => column);
 }
 
-class $$MediaItemsTableTableManager
+class $$VideoItemsTableTableManager
     extends
         RootTableManager<
           _$AppDatabase,
-          $MediaItemsTable,
-          MediaItem,
-          $$MediaItemsTableFilterComposer,
-          $$MediaItemsTableOrderingComposer,
-          $$MediaItemsTableAnnotationComposer,
-          $$MediaItemsTableCreateCompanionBuilder,
-          $$MediaItemsTableUpdateCompanionBuilder,
+          $VideoItemsTable,
+          VideoItem,
+          $$VideoItemsTableFilterComposer,
+          $$VideoItemsTableOrderingComposer,
+          $$VideoItemsTableAnnotationComposer,
+          $$VideoItemsTableCreateCompanionBuilder,
+          $$VideoItemsTableUpdateCompanionBuilder,
           (
-            MediaItem,
-            BaseReferences<_$AppDatabase, $MediaItemsTable, MediaItem>,
+            VideoItem,
+            BaseReferences<_$AppDatabase, $VideoItemsTable, VideoItem>,
           ),
-          MediaItem,
+          VideoItem,
           PrefetchHooks Function()
         > {
-  $$MediaItemsTableTableManager(_$AppDatabase db, $MediaItemsTable table)
+  $$VideoItemsTableTableManager(_$AppDatabase db, $VideoItemsTable table)
     : super(
         TableManagerState(
           db: db,
           table: table,
           createFilteringComposer: () =>
-              $$MediaItemsTableFilterComposer($db: db, $table: table),
+              $$VideoItemsTableFilterComposer($db: db, $table: table),
           createOrderingComposer: () =>
-              $$MediaItemsTableOrderingComposer($db: db, $table: table),
+              $$VideoItemsTableOrderingComposer($db: db, $table: table),
           createComputedFieldComposer: () =>
-              $$MediaItemsTableAnnotationComposer($db: db, $table: table),
+              $$VideoItemsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String> title = const Value.absent(),
                 Value<String> path = const Value.absent(),
-                Value<DateTime> creationTime = const Value.absent(),
-                Value<String?> title = const Value.absent(),
-                Value<int?> duration = const Value.absent(),
-                Value<int?> rate = const Value.absent(),
-                Value<List<String>?> tags = const Value.absent(),
-              }) => MediaItemsCompanion(
+                Value<DateTime> date = const Value.absent(),
+                Value<int> duration = const Value.absent(),
+                Value<int> rate = const Value.absent(),
+                Value<List<String>> tags = const Value.absent(),
+                Value<List<String>> thumbs = const Value.absent(),
+              }) => VideoItemsCompanion(
                 id: id,
-                path: path,
-                creationTime: creationTime,
                 title: title,
+                path: path,
+                date: date,
                 duration: duration,
                 rate: rate,
                 tags: tags,
+                thumbs: thumbs,
               ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                required String title,
                 required String path,
-                required DateTime creationTime,
-                Value<String?> title = const Value.absent(),
-                Value<int?> duration = const Value.absent(),
-                Value<int?> rate = const Value.absent(),
-                Value<List<String>?> tags = const Value.absent(),
-              }) => MediaItemsCompanion.insert(
+                required DateTime date,
+                required int duration,
+                required int rate,
+                required List<String> tags,
+                required List<String> thumbs,
+              }) => VideoItemsCompanion.insert(
                 id: id,
-                path: path,
-                creationTime: creationTime,
                 title: title,
+                path: path,
+                date: date,
                 duration: duration,
                 rate: rate,
                 tags: tags,
+                thumbs: thumbs,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -682,24 +737,24 @@ class $$MediaItemsTableTableManager
       );
 }
 
-typedef $$MediaItemsTableProcessedTableManager =
+typedef $$VideoItemsTableProcessedTableManager =
     ProcessedTableManager<
       _$AppDatabase,
-      $MediaItemsTable,
-      MediaItem,
-      $$MediaItemsTableFilterComposer,
-      $$MediaItemsTableOrderingComposer,
-      $$MediaItemsTableAnnotationComposer,
-      $$MediaItemsTableCreateCompanionBuilder,
-      $$MediaItemsTableUpdateCompanionBuilder,
-      (MediaItem, BaseReferences<_$AppDatabase, $MediaItemsTable, MediaItem>),
-      MediaItem,
+      $VideoItemsTable,
+      VideoItem,
+      $$VideoItemsTableFilterComposer,
+      $$VideoItemsTableOrderingComposer,
+      $$VideoItemsTableAnnotationComposer,
+      $$VideoItemsTableCreateCompanionBuilder,
+      $$VideoItemsTableUpdateCompanionBuilder,
+      (VideoItem, BaseReferences<_$AppDatabase, $VideoItemsTable, VideoItem>),
+      VideoItem,
       PrefetchHooks Function()
     >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
   $AppDatabaseManager(this._db);
-  $$MediaItemsTableTableManager get mediaItems =>
-      $$MediaItemsTableTableManager(_db, _db.mediaItems);
+  $$VideoItemsTableTableManager get videoItems =>
+      $$VideoItemsTableTableManager(_db, _db.videoItems);
 }
