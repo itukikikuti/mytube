@@ -11,8 +11,8 @@ part 'database.g.dart';
 class VideoItems extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get title => text()();
-  TextColumn get path => text()();
   DateTimeColumn get date => dateTime()();
+  TextColumn get type => text()();
   IntColumn get duration => integer()();
   IntColumn get rate => integer()();
   TextColumn get tags => text().map(const ListConverter())();

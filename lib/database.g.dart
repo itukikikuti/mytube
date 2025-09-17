@@ -31,15 +31,6 @@ class $VideoItemsTable extends VideoItems
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _pathMeta = const VerificationMeta('path');
-  @override
-  late final GeneratedColumn<String> path = GeneratedColumn<String>(
-    'path',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
   static const VerificationMeta _dateMeta = const VerificationMeta('date');
   @override
   late final GeneratedColumn<DateTime> date = GeneratedColumn<DateTime>(
@@ -47,6 +38,15 @@ class $VideoItemsTable extends VideoItems
     aliasedName,
     false,
     type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+    'type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
   static const VerificationMeta _durationMeta = const VerificationMeta(
@@ -91,8 +91,8 @@ class $VideoItemsTable extends VideoItems
   List<GeneratedColumn> get $columns => [
     id,
     title,
-    path,
     date,
+    type,
     duration,
     rate,
     tags,
@@ -121,14 +121,6 @@ class $VideoItemsTable extends VideoItems
     } else if (isInserting) {
       context.missing(_titleMeta);
     }
-    if (data.containsKey('path')) {
-      context.handle(
-        _pathMeta,
-        path.isAcceptableOrUnknown(data['path']!, _pathMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_pathMeta);
-    }
     if (data.containsKey('date')) {
       context.handle(
         _dateMeta,
@@ -136,6 +128,14 @@ class $VideoItemsTable extends VideoItems
       );
     } else if (isInserting) {
       context.missing(_dateMeta);
+    }
+    if (data.containsKey('type')) {
+      context.handle(
+        _typeMeta,
+        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_typeMeta);
     }
     if (data.containsKey('duration')) {
       context.handle(
@@ -170,13 +170,13 @@ class $VideoItemsTable extends VideoItems
         DriftSqlType.string,
         data['${effectivePrefix}title'],
       )!,
-      path: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}path'],
-      )!,
       date: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}date'],
+      )!,
+      type: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type'],
       )!,
       duration: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
@@ -215,8 +215,8 @@ class $VideoItemsTable extends VideoItems
 class VideoItem extends DataClass implements Insertable<VideoItem> {
   final int id;
   final String title;
-  final String path;
   final DateTime date;
+  final String type;
   final int duration;
   final int rate;
   final List<String> tags;
@@ -224,8 +224,8 @@ class VideoItem extends DataClass implements Insertable<VideoItem> {
   const VideoItem({
     required this.id,
     required this.title,
-    required this.path,
     required this.date,
+    required this.type,
     required this.duration,
     required this.rate,
     required this.tags,
@@ -236,8 +236,8 @@ class VideoItem extends DataClass implements Insertable<VideoItem> {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['title'] = Variable<String>(title);
-    map['path'] = Variable<String>(path);
     map['date'] = Variable<DateTime>(date);
+    map['type'] = Variable<String>(type);
     map['duration'] = Variable<int>(duration);
     map['rate'] = Variable<int>(rate);
     {
@@ -257,8 +257,8 @@ class VideoItem extends DataClass implements Insertable<VideoItem> {
     return VideoItemsCompanion(
       id: Value(id),
       title: Value(title),
-      path: Value(path),
       date: Value(date),
+      type: Value(type),
       duration: Value(duration),
       rate: Value(rate),
       tags: Value(tags),
@@ -274,8 +274,8 @@ class VideoItem extends DataClass implements Insertable<VideoItem> {
     return VideoItem(
       id: serializer.fromJson<int>(json['id']),
       title: serializer.fromJson<String>(json['title']),
-      path: serializer.fromJson<String>(json['path']),
       date: serializer.fromJson<DateTime>(json['date']),
+      type: serializer.fromJson<String>(json['type']),
       duration: serializer.fromJson<int>(json['duration']),
       rate: serializer.fromJson<int>(json['rate']),
       tags: serializer.fromJson<List<String>>(json['tags']),
@@ -288,8 +288,8 @@ class VideoItem extends DataClass implements Insertable<VideoItem> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'title': serializer.toJson<String>(title),
-      'path': serializer.toJson<String>(path),
       'date': serializer.toJson<DateTime>(date),
+      'type': serializer.toJson<String>(type),
       'duration': serializer.toJson<int>(duration),
       'rate': serializer.toJson<int>(rate),
       'tags': serializer.toJson<List<String>>(tags),
@@ -300,8 +300,8 @@ class VideoItem extends DataClass implements Insertable<VideoItem> {
   VideoItem copyWith({
     int? id,
     String? title,
-    String? path,
     DateTime? date,
+    String? type,
     int? duration,
     int? rate,
     List<String>? tags,
@@ -309,8 +309,8 @@ class VideoItem extends DataClass implements Insertable<VideoItem> {
   }) => VideoItem(
     id: id ?? this.id,
     title: title ?? this.title,
-    path: path ?? this.path,
     date: date ?? this.date,
+    type: type ?? this.type,
     duration: duration ?? this.duration,
     rate: rate ?? this.rate,
     tags: tags ?? this.tags,
@@ -320,8 +320,8 @@ class VideoItem extends DataClass implements Insertable<VideoItem> {
     return VideoItem(
       id: data.id.present ? data.id.value : this.id,
       title: data.title.present ? data.title.value : this.title,
-      path: data.path.present ? data.path.value : this.path,
       date: data.date.present ? data.date.value : this.date,
+      type: data.type.present ? data.type.value : this.type,
       duration: data.duration.present ? data.duration.value : this.duration,
       rate: data.rate.present ? data.rate.value : this.rate,
       tags: data.tags.present ? data.tags.value : this.tags,
@@ -334,8 +334,8 @@ class VideoItem extends DataClass implements Insertable<VideoItem> {
     return (StringBuffer('VideoItem(')
           ..write('id: $id, ')
           ..write('title: $title, ')
-          ..write('path: $path, ')
           ..write('date: $date, ')
+          ..write('type: $type, ')
           ..write('duration: $duration, ')
           ..write('rate: $rate, ')
           ..write('tags: $tags, ')
@@ -346,15 +346,15 @@ class VideoItem extends DataClass implements Insertable<VideoItem> {
 
   @override
   int get hashCode =>
-      Object.hash(id, title, path, date, duration, rate, tags, thumbs);
+      Object.hash(id, title, date, type, duration, rate, tags, thumbs);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is VideoItem &&
           other.id == this.id &&
           other.title == this.title &&
-          other.path == this.path &&
           other.date == this.date &&
+          other.type == this.type &&
           other.duration == this.duration &&
           other.rate == this.rate &&
           other.tags == this.tags &&
@@ -364,8 +364,8 @@ class VideoItem extends DataClass implements Insertable<VideoItem> {
 class VideoItemsCompanion extends UpdateCompanion<VideoItem> {
   final Value<int> id;
   final Value<String> title;
-  final Value<String> path;
   final Value<DateTime> date;
+  final Value<String> type;
   final Value<int> duration;
   final Value<int> rate;
   final Value<List<String>> tags;
@@ -373,8 +373,8 @@ class VideoItemsCompanion extends UpdateCompanion<VideoItem> {
   const VideoItemsCompanion({
     this.id = const Value.absent(),
     this.title = const Value.absent(),
-    this.path = const Value.absent(),
     this.date = const Value.absent(),
+    this.type = const Value.absent(),
     this.duration = const Value.absent(),
     this.rate = const Value.absent(),
     this.tags = const Value.absent(),
@@ -383,15 +383,15 @@ class VideoItemsCompanion extends UpdateCompanion<VideoItem> {
   VideoItemsCompanion.insert({
     this.id = const Value.absent(),
     required String title,
-    required String path,
     required DateTime date,
+    required String type,
     required int duration,
     required int rate,
     required List<String> tags,
     required List<String> thumbs,
   }) : title = Value(title),
-       path = Value(path),
        date = Value(date),
+       type = Value(type),
        duration = Value(duration),
        rate = Value(rate),
        tags = Value(tags),
@@ -399,8 +399,8 @@ class VideoItemsCompanion extends UpdateCompanion<VideoItem> {
   static Insertable<VideoItem> custom({
     Expression<int>? id,
     Expression<String>? title,
-    Expression<String>? path,
     Expression<DateTime>? date,
+    Expression<String>? type,
     Expression<int>? duration,
     Expression<int>? rate,
     Expression<String>? tags,
@@ -409,8 +409,8 @@ class VideoItemsCompanion extends UpdateCompanion<VideoItem> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (title != null) 'title': title,
-      if (path != null) 'path': path,
       if (date != null) 'date': date,
+      if (type != null) 'type': type,
       if (duration != null) 'duration': duration,
       if (rate != null) 'rate': rate,
       if (tags != null) 'tags': tags,
@@ -421,8 +421,8 @@ class VideoItemsCompanion extends UpdateCompanion<VideoItem> {
   VideoItemsCompanion copyWith({
     Value<int>? id,
     Value<String>? title,
-    Value<String>? path,
     Value<DateTime>? date,
+    Value<String>? type,
     Value<int>? duration,
     Value<int>? rate,
     Value<List<String>>? tags,
@@ -431,8 +431,8 @@ class VideoItemsCompanion extends UpdateCompanion<VideoItem> {
     return VideoItemsCompanion(
       id: id ?? this.id,
       title: title ?? this.title,
-      path: path ?? this.path,
       date: date ?? this.date,
+      type: type ?? this.type,
       duration: duration ?? this.duration,
       rate: rate ?? this.rate,
       tags: tags ?? this.tags,
@@ -449,11 +449,11 @@ class VideoItemsCompanion extends UpdateCompanion<VideoItem> {
     if (title.present) {
       map['title'] = Variable<String>(title.value);
     }
-    if (path.present) {
-      map['path'] = Variable<String>(path.value);
-    }
     if (date.present) {
       map['date'] = Variable<DateTime>(date.value);
+    }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
     }
     if (duration.present) {
       map['duration'] = Variable<int>(duration.value);
@@ -479,8 +479,8 @@ class VideoItemsCompanion extends UpdateCompanion<VideoItem> {
     return (StringBuffer('VideoItemsCompanion(')
           ..write('id: $id, ')
           ..write('title: $title, ')
-          ..write('path: $path, ')
           ..write('date: $date, ')
+          ..write('type: $type, ')
           ..write('duration: $duration, ')
           ..write('rate: $rate, ')
           ..write('tags: $tags, ')
@@ -505,8 +505,8 @@ typedef $$VideoItemsTableCreateCompanionBuilder =
     VideoItemsCompanion Function({
       Value<int> id,
       required String title,
-      required String path,
       required DateTime date,
+      required String type,
       required int duration,
       required int rate,
       required List<String> tags,
@@ -516,8 +516,8 @@ typedef $$VideoItemsTableUpdateCompanionBuilder =
     VideoItemsCompanion Function({
       Value<int> id,
       Value<String> title,
-      Value<String> path,
       Value<DateTime> date,
+      Value<String> type,
       Value<int> duration,
       Value<int> rate,
       Value<List<String>> tags,
@@ -543,13 +543,13 @@ class $$VideoItemsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get path => $composableBuilder(
-    column: $table.path,
+  ColumnFilters<DateTime> get date => $composableBuilder(
+    column: $table.date,
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<DateTime> get date => $composableBuilder(
-    column: $table.date,
+  ColumnFilters<String> get type => $composableBuilder(
+    column: $table.type,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -595,13 +595,13 @@ class $$VideoItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get path => $composableBuilder(
-    column: $table.path,
+  ColumnOrderings<DateTime> get date => $composableBuilder(
+    column: $table.date,
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<DateTime> get date => $composableBuilder(
-    column: $table.date,
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -641,11 +641,11 @@ class $$VideoItemsTableAnnotationComposer
   GeneratedColumn<String> get title =>
       $composableBuilder(column: $table.title, builder: (column) => column);
 
-  GeneratedColumn<String> get path =>
-      $composableBuilder(column: $table.path, builder: (column) => column);
-
   GeneratedColumn<DateTime> get date =>
       $composableBuilder(column: $table.date, builder: (column) => column);
+
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
 
   GeneratedColumn<int> get duration =>
       $composableBuilder(column: $table.duration, builder: (column) => column);
@@ -693,8 +693,8 @@ class $$VideoItemsTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<String> title = const Value.absent(),
-                Value<String> path = const Value.absent(),
                 Value<DateTime> date = const Value.absent(),
+                Value<String> type = const Value.absent(),
                 Value<int> duration = const Value.absent(),
                 Value<int> rate = const Value.absent(),
                 Value<List<String>> tags = const Value.absent(),
@@ -702,8 +702,8 @@ class $$VideoItemsTableTableManager
               }) => VideoItemsCompanion(
                 id: id,
                 title: title,
-                path: path,
                 date: date,
+                type: type,
                 duration: duration,
                 rate: rate,
                 tags: tags,
@@ -713,8 +713,8 @@ class $$VideoItemsTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 required String title,
-                required String path,
                 required DateTime date,
+                required String type,
                 required int duration,
                 required int rate,
                 required List<String> tags,
@@ -722,8 +722,8 @@ class $$VideoItemsTableTableManager
               }) => VideoItemsCompanion.insert(
                 id: id,
                 title: title,
-                path: path,
                 date: date,
+                type: type,
                 duration: duration,
                 rate: rate,
                 tags: tags,

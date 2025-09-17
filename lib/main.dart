@@ -29,6 +29,11 @@ class MyApp extends StatelessWidget {
       title: 'MyTube',
       theme: ThemeData(
         primarySwatch: Colors.blue,
+        scrollbarTheme: ScrollbarThemeData(
+          thumbVisibility: WidgetStateProperty.all(true),
+          trackVisibility: WidgetStateProperty.all(true),
+          thickness: WidgetStateProperty.all(8.0),
+        )
       ),
       home: const HomePage(),
     );
@@ -201,80 +206,146 @@ class _MediaGalleryState extends State<MediaGallery> {
     return GridView.builder(
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 300,
-        childAspectRatio: 16 / 9,
+        childAspectRatio: 1.15,
         crossAxisSpacing: 4,
         mainAxisSpacing: 4,
       ),
       itemCount: _mediaFiles.length,
       itemBuilder: (context, index) {
         final mediaItem = _mediaFiles[index];
-        final extension = path.extension(mediaItem.path).toLowerCase();
-        final isVideo = _supportedVideoExtensions.contains(extension);
+        return MediaCard(mediaItem: mediaItem);
+      },
+    );
+  }
+}
 
-        return GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => MediaDetailPage(
-                  filePath: mediaItem.path,
-                  isVideo: isVideo,
-                ),
-              ),
-            );
-          },
-          child: GridTile(
-            footer: GridTileBar(
-              backgroundColor: Colors.black45,
-              title: Text(
-                path.basename(mediaItem.path),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
+class MediaCard extends StatefulWidget {
+  final VideoItem mediaItem;
+
+  const MediaCard({super.key, required this.mediaItem});
+
+  @override
+  State<MediaCard> createState() => _MediaCardState();
+}
+
+class _MediaCardState extends State<MediaCard> {
+  bool isHovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final mediaPath = 'N:\\Videos\\${widget.mediaItem.title}';
+    final isVideo = widget.mediaItem.type == 'video';
+
+    late final Widget thumb;
+    
+    if (isVideo) {
+      if (widget.mediaItem.thumbs.isEmpty) {
+        thumb = Container(
+          color: Colors.black,
+          child: const Icon(
+            Icons.play_circle_outline_rounded,
+            color: Colors.white,
+            size: 50,
+          ),
+        );
+      } else {
+        if (widget.mediaItem.thumbs.length == 1) {
+          thumb = Image.memory(
+            base64Decode(widget.mediaItem.thumbs.first),
+            fit: BoxFit.fitHeight,
+          );
+        } else {
+          thumb = CarouselSlider.builder(
+            itemCount: widget.mediaItem.thumbs.length,
+            itemBuilder: (context, itemIndex, pageViewIndex) {
+              return Image.memory(
+                base64Decode(widget.mediaItem.thumbs[itemIndex]),
+                fit: BoxFit.fitHeight,
+              );
+            },
+            options: CarouselOptions(
+              height: double.infinity,
+              viewportFraction: 1.0,
+              aspectRatio: 1.0,
+              autoPlay: widget.mediaItem.thumbs.length > 1,
             ),
-            child: isVideo
-                ? mediaItem.thumbs.isEmpty
-                    ? Container(
-                        color: Colors.black,
-                        child: const Icon(
-                          Icons.play_circle_outline,
-                          color: Colors.white,
-                          size: 50,
-                        ),
-                      )
-                    : mediaItem.thumbs.length == 1
-                        ? Image.memory(
-                            base64Decode(mediaItem.thumbs.first),
-                            fit: BoxFit.fitHeight,
-                          )
-                        : CarouselSlider.builder(
-                            itemCount: mediaItem.thumbs.length,
-                            itemBuilder: (context, itemIndex, pageViewIndex) {
-                              return Image.memory(
-                                base64Decode(mediaItem.thumbs[itemIndex]),
-                                fit: BoxFit.fitHeight,
-                              );
-                            },
-                            options: CarouselOptions(
-                              height: double.infinity,
-                              viewportFraction: 1.0,
-                              aspectRatio: 1.0,
-                              autoPlay: true,
-                            ),
-                          )
-                : Image.file(
-                    File(mediaItem.path),
-                    fit: BoxFit.fitHeight,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: Colors.grey[300],
-                        child: const Icon(Icons.broken_image, size: 50),
-                      );
-                    },
-                  ),
+          );
+        }
+      }
+    } else {
+      thumb = Image.file(
+        File(mediaPath),
+        fit: BoxFit.fitHeight,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            color: Colors.grey[300],
+            child: const Icon(Icons.broken_image, size: 50),
+          );
+        },
+      );
+    }
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MediaDetailPage(
+              filePath: mediaPath,
+              isVideo: isVideo,
+            ),
           ),
         );
       },
+      child: Card(
+        elevation: 4,
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Container(
+                color: Colors.black,
+                child: thumb,
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.mediaItem.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const Spacer(),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(widget.mediaItem.date.toString(), style: const TextStyle(fontSize: 12)),
+                        Text('♥♥♥♥♥ ${widget.mediaItem.rate}', style: const TextStyle(fontSize: 16)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      // child: GridTile(
+      //   footer: GridTileBar(
+      //     backgroundColor: Colors.black45,
+      //     title: Text(
+      //       widget.mediaItem.title,
+      //       maxLines: 2,
+      //       overflow: TextOverflow.ellipsis,
+      //     ),
+      //   ),
+      //   child: thumb,
+      // ),
     );
   }
 }
@@ -318,7 +389,18 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(path.basename(widget.filePath)),
-        // backgroundColor: Colors.black,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.play_circle_outline_rounded),
+            onPressed: () async {
+              print('"${widget.filePath}"');
+              Process process = await Process.start('cmd', ['/c', 'start', '""', widget.filePath]);
+              process.stdout.transform(utf8.decoder).listen((data) {
+                print('Cmd出力: $data');
+              });
+            },
+          )
+        ],
       ),
       backgroundColor: Colors.black,
       body: Center(

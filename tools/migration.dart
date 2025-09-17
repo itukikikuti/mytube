@@ -6,7 +6,6 @@ import 'package:mytube/database.dart';
 
 class NeDBRecord {
   final String title;
-  final String path;
   final DateTime date;
   final String type;
   final int duration;
@@ -16,7 +15,6 @@ class NeDBRecord {
 
   NeDBRecord.fromJson(Map<String, dynamic> json)
       : title = json['title'],
-        path = json['path'],
         date = DateTime.fromMillisecondsSinceEpoch(json['date']['\$\$date']),
         type = json['type'],
         duration = json['duration'],
@@ -47,12 +45,10 @@ void main() async {
       final json = jsonDecode(line);
       final record = NeDBRecord.fromJson(json);
 
-      if (record.type != 'video') continue;
-
       final companion = VideoItemsCompanion.insert(
         title: record.title,
-        path: record.path,
         date: record.date,
+        type: record.type,
         duration: record.duration,
         rate: record.rate,
         tags: record.tags,
