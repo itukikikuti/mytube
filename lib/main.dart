@@ -7,6 +7,8 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:path/path.dart' as path;
+import 'package:intl/intl.dart';
+import 'package:flutter/gestures.dart';
 
 import 'database.dart';
 
@@ -29,11 +31,12 @@ class MyApp extends StatelessWidget {
       title: 'MyTube',
       theme: ThemeData(
         primarySwatch: Colors.blue,
-        scrollbarTheme: ScrollbarThemeData(
-          thumbVisibility: WidgetStateProperty.all(true),
-          trackVisibility: WidgetStateProperty.all(true),
-          thickness: WidgetStateProperty.all(8.0),
-        )
+      ),
+      scrollBehavior: MaterialScrollBehavior().copyWith(
+        dragDevices: {
+          PointerDeviceKind.touch,
+          PointerDeviceKind.mouse,
+        }
       ),
       home: const HomePage(),
     );
@@ -67,7 +70,7 @@ class MediaGallery extends StatefulWidget {
 }
 
 class _MediaGalleryState extends State<MediaGallery> {
-  List<VideoItem> _mediaFiles = [];
+  List<MediaItem> _mediaFiles = [];
   bool _isLoading = true;
   String _statusMessage = '';
   String? _error;
@@ -93,6 +96,11 @@ class _MediaGalleryState extends State<MediaGallery> {
   void initState() {
     super.initState();
     _scanAndLoadMedia();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
   }
 
   Future<void> _scanAndLoadMedia() async {
@@ -156,15 +164,16 @@ class _MediaGalleryState extends State<MediaGallery> {
       //   _statusMessage = 'Loading media from database...';
       // });
 
-      final allItems = await (appDatabase.select(appDatabase.videoItems)
+      final allItems = await (appDatabase.select(appDatabase.mediaItems)
             ..orderBy([
               (t) => drift.OrderingTerm(
                   expression: t.date, mode: drift.OrderingMode.desc)
             ]))
           .get();
-
+      
       setState(() {
         _mediaFiles = allItems;
+        // _mediaFiles = allItems.take(30).toList();
         _isLoading = false;
       });
     } catch (e) {
@@ -206,7 +215,7 @@ class _MediaGalleryState extends State<MediaGallery> {
     return GridView.builder(
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 300,
-        childAspectRatio: 1.15,
+        childAspectRatio: 1.1,
         crossAxisSpacing: 4,
         mainAxisSpacing: 4,
       ),
@@ -220,7 +229,7 @@ class _MediaGalleryState extends State<MediaGallery> {
 }
 
 class MediaCard extends StatefulWidget {
-  final VideoItem mediaItem;
+  final MediaItem mediaItem;
 
   const MediaCard({super.key, required this.mediaItem});
 
@@ -231,14 +240,18 @@ class MediaCard extends StatefulWidget {
 class _MediaCardState extends State<MediaCard> {
   bool isHovering = false;
 
+  Future<int> fetchData() async {
+    // await Future.delayed(const Duration(seconds: 2));
+    final query = appDatabase.select(appDatabase.historyItems)..where((t) => t.media.equals(widget.mediaItem.id));
+    final historyItems = await query.get();
+    return historyItems.length;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final mediaPath = 'N:\\Videos\\${widget.mediaItem.title}';
-    final isVideo = widget.mediaItem.type == 'video';
-
     late final Widget thumb;
     
-    if (isVideo) {
+    if (widget.mediaItem.type == 'video') {
       if (widget.mediaItem.thumbs.isEmpty) {
         thumb = Container(
           color: Colors.black,
@@ -274,7 +287,7 @@ class _MediaCardState extends State<MediaCard> {
       }
     } else {
       thumb = Image.file(
-        File(mediaPath),
+        File('N:\\Videos\\${widget.mediaItem.title}'),
         fit: BoxFit.fitHeight,
         errorBuilder: (context, error, stackTrace) {
           return Container(
@@ -285,14 +298,15 @@ class _MediaCardState extends State<MediaCard> {
       );
     }
 
+    final formatter = DateFormat('yyyy/M/d');
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => MediaDetailPage(
-              filePath: mediaPath,
-              isVideo: isVideo,
+              mediaItem: widget.mediaItem,
             ),
           ),
         );
@@ -324,8 +338,26 @@ class _MediaCardState extends State<MediaCard> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(widget.mediaItem.date.toString(), style: const TextStyle(fontSize: 12)),
-                        Text('♥♥♥♥♥ ${widget.mediaItem.rate}', style: const TextStyle(fontSize: 16)),
+                        FutureBuilder(
+                          future: fetchData(),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return Text(formatter.format(widget.mediaItem.date), style: const TextStyle(fontSize: 12));
+                            }
+                            if (snapshot.hasError) {
+                              return Text('?回・${formatter.format(widget.mediaItem.date)}', style: const TextStyle(fontSize: 12));
+                            }
+                            if (snapshot.hasData) {
+                              return Text(
+                                '${snapshot.data!}回・${formatter.format(widget.mediaItem.date)}',
+                                style: const TextStyle(fontSize: 12)
+                                // style: Theme.of(context).textTheme.headlineMedium,
+                              );
+                            }
+                            return Text(formatter.format(widget.mediaItem.date), style: const TextStyle(fontSize: 12));
+                          }
+                        ),
+                        Text('♥${widget.mediaItem.rate}', style: const TextStyle(fontSize: 16)),
                       ],
                     ),
                   ],
@@ -351,11 +383,9 @@ class _MediaCardState extends State<MediaCard> {
 }
 
 class MediaDetailPage extends StatefulWidget {
-  final String filePath;
-  final bool isVideo;
+  final MediaItem mediaItem;
 
-  const MediaDetailPage(
-      {super.key, required this.filePath, required this.isVideo});
+  const MediaDetailPage({super.key, required this.mediaItem});
 
   @override
   State<MediaDetailPage> createState() => _MediaDetailPageState();
@@ -368,17 +398,17 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
   @override
   void initState() {
     super.initState();
-    if (widget.isVideo) {
+    if (widget.mediaItem.type == 'video') {
       _player = Player();
       _controller = VideoController(_player);
-      final uri = Uri.file(widget.filePath, windows: Platform.isWindows);
+      final uri = Uri.file('N:\\Videos\\${widget.mediaItem.title}', windows: Platform.isWindows);
       _player.open(Media(uri.toString()));
     }
   }
 
   @override
   void dispose() {
-    if (widget.isVideo) {
+    if (widget.mediaItem.type == 'video') {
       _player.dispose();
     }
     super.dispose();
@@ -388,26 +418,27 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(path.basename(widget.filePath)),
+        title: Text(widget.mediaItem.title),
         actions: [
           IconButton(
             icon: Icon(Icons.play_circle_outline_rounded),
             onPressed: () async {
-              print('"${widget.filePath}"');
-              Process process = await Process.start('cmd', ['/c', 'start', '""', widget.filePath]);
-              process.stdout.transform(utf8.decoder).listen((data) {
-                print('Cmd出力: $data');
-              });
+              await Process.start('cmd', ['/c', 'start', '""', 'N:\\Videos\\${widget.mediaItem.title}']);
+              final newHistory = HistoryItemsCompanion(
+                media: drift.Value(widget.mediaItem.id),
+                date: drift.Value(DateTime.now())
+              );
+              await appDatabase.into(appDatabase.historyItems).insert(newHistory);
             },
           )
         ],
       ),
       backgroundColor: Colors.black,
       body: Center(
-        child: widget.isVideo
+        child: widget.mediaItem.type == 'video'
             ? Video(controller: _controller)
             : InteractiveViewer(
-                child: Image.file(File(widget.filePath)),
+                child: Image.file(File('N:\\Videos\\${widget.mediaItem.title}')),
               ),
       ),
     );

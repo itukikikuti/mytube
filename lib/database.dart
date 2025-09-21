@@ -7,20 +7,33 @@ import 'package:drift/drift.dart';
 
 part 'database.g.dart';
 
-@DataClassName('VideoItem')
-class VideoItems extends Table {
+@DataClassName('MediaItem')
+class MediaItems extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get title => text()();
   DateTimeColumn get date => dateTime()();
   TextColumn get type => text()();
   IntColumn get duration => integer()();
   IntColumn get rate => integer()();
-  TextColumn get tags => text().map(const ListConverter())();
-  TextColumn get thumbs => text().map(const ListConverter())();
+  TextColumn get tags => text().map(const IntListConverter())();
+  TextColumn get thumbs => text().map(const StringListConverter())();
 }
 
-class ListConverter extends TypeConverter<List<String>, String> {
-  const ListConverter();
+@DataClassName('HistoryItem')
+class HistoryItems extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get media => integer()();
+  DateTimeColumn get date => dateTime()();
+}
+
+@DataClassName('TagItem')
+class TagItems extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text()();
+}
+
+class StringListConverter extends TypeConverter<List<String>, String> {
+  const StringListConverter();
   @override
   List<String> fromSql(String fromDb) {
     return (json.decode(fromDb) as List<dynamic>).cast<String>();
@@ -32,7 +45,20 @@ class ListConverter extends TypeConverter<List<String>, String> {
   }
 }
 
-@DriftDatabase(tables: [VideoItems])
+class IntListConverter extends TypeConverter<List<int>, String> {
+  const IntListConverter();
+  @override
+  List<int> fromSql(String fromDb) {
+    return (json.decode(fromDb) as List<dynamic>).cast<int>();
+  }
+
+  @override
+  String toSql(List<int> value) {
+    return json.encode(value);
+  }
+}
+
+@DriftDatabase(tables: [MediaItems, HistoryItems, TagItems])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(QueryExecutor e) : super(e);
   // AppDatabase.connect() : super(_openConnection());

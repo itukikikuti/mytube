@@ -3,12 +3,12 @@
 part of 'database.dart';
 
 // ignore_for_file: type=lint
-class $VideoItemsTable extends VideoItems
-    with TableInfo<$VideoItemsTable, VideoItem> {
+class $MediaItemsTable extends MediaItems
+    with TableInfo<$MediaItemsTable, MediaItem> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
-  $VideoItemsTable(this.attachedDatabase, [this._alias]);
+  $MediaItemsTable(this.attachedDatabase, [this._alias]);
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<int> id = GeneratedColumn<int>(
@@ -70,14 +70,14 @@ class $VideoItemsTable extends VideoItems
     requiredDuringInsert: true,
   );
   @override
-  late final GeneratedColumnWithTypeConverter<List<String>, String> tags =
+  late final GeneratedColumnWithTypeConverter<List<int>, String> tags =
       GeneratedColumn<String>(
         'tags',
         aliasedName,
         false,
         type: DriftSqlType.string,
         requiredDuringInsert: true,
-      ).withConverter<List<String>>($VideoItemsTable.$convertertags);
+      ).withConverter<List<int>>($MediaItemsTable.$convertertags);
   @override
   late final GeneratedColumnWithTypeConverter<List<String>, String> thumbs =
       GeneratedColumn<String>(
@@ -86,7 +86,7 @@ class $VideoItemsTable extends VideoItems
         false,
         type: DriftSqlType.string,
         requiredDuringInsert: true,
-      ).withConverter<List<String>>($VideoItemsTable.$converterthumbs);
+      ).withConverter<List<String>>($MediaItemsTable.$converterthumbs);
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -102,10 +102,10 @@ class $VideoItemsTable extends VideoItems
   String get aliasedName => _alias ?? actualTableName;
   @override
   String get actualTableName => $name;
-  static const String $name = 'video_items';
+  static const String $name = 'media_items';
   @override
   VerificationContext validateIntegrity(
-    Insertable<VideoItem> instance, {
+    Insertable<MediaItem> instance, {
     bool isInserting = false,
   }) {
     final context = VerificationContext();
@@ -159,9 +159,9 @@ class $VideoItemsTable extends VideoItems
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  VideoItem map(Map<String, dynamic> data, {String? tablePrefix}) {
+  MediaItem map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return VideoItem(
+    return MediaItem(
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}id'],
@@ -186,13 +186,13 @@ class $VideoItemsTable extends VideoItems
         DriftSqlType.int,
         data['${effectivePrefix}rate'],
       )!,
-      tags: $VideoItemsTable.$convertertags.fromSql(
+      tags: $MediaItemsTable.$convertertags.fromSql(
         attachedDatabase.typeMapping.read(
           DriftSqlType.string,
           data['${effectivePrefix}tags'],
         )!,
       ),
-      thumbs: $VideoItemsTable.$converterthumbs.fromSql(
+      thumbs: $MediaItemsTable.$converterthumbs.fromSql(
         attachedDatabase.typeMapping.read(
           DriftSqlType.string,
           data['${effectivePrefix}thumbs'],
@@ -202,26 +202,26 @@ class $VideoItemsTable extends VideoItems
   }
 
   @override
-  $VideoItemsTable createAlias(String alias) {
-    return $VideoItemsTable(attachedDatabase, alias);
+  $MediaItemsTable createAlias(String alias) {
+    return $MediaItemsTable(attachedDatabase, alias);
   }
 
-  static TypeConverter<List<String>, String> $convertertags =
-      const ListConverter();
+  static TypeConverter<List<int>, String> $convertertags =
+      const IntListConverter();
   static TypeConverter<List<String>, String> $converterthumbs =
-      const ListConverter();
+      const StringListConverter();
 }
 
-class VideoItem extends DataClass implements Insertable<VideoItem> {
+class MediaItem extends DataClass implements Insertable<MediaItem> {
   final int id;
   final String title;
   final DateTime date;
   final String type;
   final int duration;
   final int rate;
-  final List<String> tags;
+  final List<int> tags;
   final List<String> thumbs;
-  const VideoItem({
+  const MediaItem({
     required this.id,
     required this.title,
     required this.date,
@@ -242,19 +242,19 @@ class VideoItem extends DataClass implements Insertable<VideoItem> {
     map['rate'] = Variable<int>(rate);
     {
       map['tags'] = Variable<String>(
-        $VideoItemsTable.$convertertags.toSql(tags),
+        $MediaItemsTable.$convertertags.toSql(tags),
       );
     }
     {
       map['thumbs'] = Variable<String>(
-        $VideoItemsTable.$converterthumbs.toSql(thumbs),
+        $MediaItemsTable.$converterthumbs.toSql(thumbs),
       );
     }
     return map;
   }
 
-  VideoItemsCompanion toCompanion(bool nullToAbsent) {
-    return VideoItemsCompanion(
+  MediaItemsCompanion toCompanion(bool nullToAbsent) {
+    return MediaItemsCompanion(
       id: Value(id),
       title: Value(title),
       date: Value(date),
@@ -266,19 +266,19 @@ class VideoItem extends DataClass implements Insertable<VideoItem> {
     );
   }
 
-  factory VideoItem.fromJson(
+  factory MediaItem.fromJson(
     Map<String, dynamic> json, {
     ValueSerializer? serializer,
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return VideoItem(
+    return MediaItem(
       id: serializer.fromJson<int>(json['id']),
       title: serializer.fromJson<String>(json['title']),
       date: serializer.fromJson<DateTime>(json['date']),
       type: serializer.fromJson<String>(json['type']),
       duration: serializer.fromJson<int>(json['duration']),
       rate: serializer.fromJson<int>(json['rate']),
-      tags: serializer.fromJson<List<String>>(json['tags']),
+      tags: serializer.fromJson<List<int>>(json['tags']),
       thumbs: serializer.fromJson<List<String>>(json['thumbs']),
     );
   }
@@ -292,21 +292,21 @@ class VideoItem extends DataClass implements Insertable<VideoItem> {
       'type': serializer.toJson<String>(type),
       'duration': serializer.toJson<int>(duration),
       'rate': serializer.toJson<int>(rate),
-      'tags': serializer.toJson<List<String>>(tags),
+      'tags': serializer.toJson<List<int>>(tags),
       'thumbs': serializer.toJson<List<String>>(thumbs),
     };
   }
 
-  VideoItem copyWith({
+  MediaItem copyWith({
     int? id,
     String? title,
     DateTime? date,
     String? type,
     int? duration,
     int? rate,
-    List<String>? tags,
+    List<int>? tags,
     List<String>? thumbs,
-  }) => VideoItem(
+  }) => MediaItem(
     id: id ?? this.id,
     title: title ?? this.title,
     date: date ?? this.date,
@@ -316,8 +316,8 @@ class VideoItem extends DataClass implements Insertable<VideoItem> {
     tags: tags ?? this.tags,
     thumbs: thumbs ?? this.thumbs,
   );
-  VideoItem copyWithCompanion(VideoItemsCompanion data) {
-    return VideoItem(
+  MediaItem copyWithCompanion(MediaItemsCompanion data) {
+    return MediaItem(
       id: data.id.present ? data.id.value : this.id,
       title: data.title.present ? data.title.value : this.title,
       date: data.date.present ? data.date.value : this.date,
@@ -331,7 +331,7 @@ class VideoItem extends DataClass implements Insertable<VideoItem> {
 
   @override
   String toString() {
-    return (StringBuffer('VideoItem(')
+    return (StringBuffer('MediaItem(')
           ..write('id: $id, ')
           ..write('title: $title, ')
           ..write('date: $date, ')
@@ -350,7 +350,7 @@ class VideoItem extends DataClass implements Insertable<VideoItem> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is VideoItem &&
+      (other is MediaItem &&
           other.id == this.id &&
           other.title == this.title &&
           other.date == this.date &&
@@ -361,16 +361,16 @@ class VideoItem extends DataClass implements Insertable<VideoItem> {
           other.thumbs == this.thumbs);
 }
 
-class VideoItemsCompanion extends UpdateCompanion<VideoItem> {
+class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
   final Value<int> id;
   final Value<String> title;
   final Value<DateTime> date;
   final Value<String> type;
   final Value<int> duration;
   final Value<int> rate;
-  final Value<List<String>> tags;
+  final Value<List<int>> tags;
   final Value<List<String>> thumbs;
-  const VideoItemsCompanion({
+  const MediaItemsCompanion({
     this.id = const Value.absent(),
     this.title = const Value.absent(),
     this.date = const Value.absent(),
@@ -380,14 +380,14 @@ class VideoItemsCompanion extends UpdateCompanion<VideoItem> {
     this.tags = const Value.absent(),
     this.thumbs = const Value.absent(),
   });
-  VideoItemsCompanion.insert({
+  MediaItemsCompanion.insert({
     this.id = const Value.absent(),
     required String title,
     required DateTime date,
     required String type,
     required int duration,
     required int rate,
-    required List<String> tags,
+    required List<int> tags,
     required List<String> thumbs,
   }) : title = Value(title),
        date = Value(date),
@@ -396,7 +396,7 @@ class VideoItemsCompanion extends UpdateCompanion<VideoItem> {
        rate = Value(rate),
        tags = Value(tags),
        thumbs = Value(thumbs);
-  static Insertable<VideoItem> custom({
+  static Insertable<MediaItem> custom({
     Expression<int>? id,
     Expression<String>? title,
     Expression<DateTime>? date,
@@ -418,17 +418,17 @@ class VideoItemsCompanion extends UpdateCompanion<VideoItem> {
     });
   }
 
-  VideoItemsCompanion copyWith({
+  MediaItemsCompanion copyWith({
     Value<int>? id,
     Value<String>? title,
     Value<DateTime>? date,
     Value<String>? type,
     Value<int>? duration,
     Value<int>? rate,
-    Value<List<String>>? tags,
+    Value<List<int>>? tags,
     Value<List<String>>? thumbs,
   }) {
-    return VideoItemsCompanion(
+    return MediaItemsCompanion(
       id: id ?? this.id,
       title: title ?? this.title,
       date: date ?? this.date,
@@ -463,12 +463,12 @@ class VideoItemsCompanion extends UpdateCompanion<VideoItem> {
     }
     if (tags.present) {
       map['tags'] = Variable<String>(
-        $VideoItemsTable.$convertertags.toSql(tags.value),
+        $MediaItemsTable.$convertertags.toSql(tags.value),
       );
     }
     if (thumbs.present) {
       map['thumbs'] = Variable<String>(
-        $VideoItemsTable.$converterthumbs.toSql(thumbs.value),
+        $MediaItemsTable.$converterthumbs.toSql(thumbs.value),
       );
     }
     return map;
@@ -476,7 +476,7 @@ class VideoItemsCompanion extends UpdateCompanion<VideoItem> {
 
   @override
   String toString() {
-    return (StringBuffer('VideoItemsCompanion(')
+    return (StringBuffer('MediaItemsCompanion(')
           ..write('id: $id, ')
           ..write('title: $title, ')
           ..write('date: $date, ')
@@ -490,43 +490,481 @@ class VideoItemsCompanion extends UpdateCompanion<VideoItem> {
   }
 }
 
+class $HistoryItemsTable extends HistoryItems
+    with TableInfo<$HistoryItemsTable, HistoryItem> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $HistoryItemsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _mediaMeta = const VerificationMeta('media');
+  @override
+  late final GeneratedColumn<int> media = GeneratedColumn<int>(
+    'media',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _dateMeta = const VerificationMeta('date');
+  @override
+  late final GeneratedColumn<DateTime> date = GeneratedColumn<DateTime>(
+    'date',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, media, date];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'history_items';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<HistoryItem> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('media')) {
+      context.handle(
+        _mediaMeta,
+        media.isAcceptableOrUnknown(data['media']!, _mediaMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_mediaMeta);
+    }
+    if (data.containsKey('date')) {
+      context.handle(
+        _dateMeta,
+        date.isAcceptableOrUnknown(data['date']!, _dateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_dateMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  HistoryItem map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return HistoryItem(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      media: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}media'],
+      )!,
+      date: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}date'],
+      )!,
+    );
+  }
+
+  @override
+  $HistoryItemsTable createAlias(String alias) {
+    return $HistoryItemsTable(attachedDatabase, alias);
+  }
+}
+
+class HistoryItem extends DataClass implements Insertable<HistoryItem> {
+  final int id;
+  final int media;
+  final DateTime date;
+  const HistoryItem({
+    required this.id,
+    required this.media,
+    required this.date,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['media'] = Variable<int>(media);
+    map['date'] = Variable<DateTime>(date);
+    return map;
+  }
+
+  HistoryItemsCompanion toCompanion(bool nullToAbsent) {
+    return HistoryItemsCompanion(
+      id: Value(id),
+      media: Value(media),
+      date: Value(date),
+    );
+  }
+
+  factory HistoryItem.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return HistoryItem(
+      id: serializer.fromJson<int>(json['id']),
+      media: serializer.fromJson<int>(json['media']),
+      date: serializer.fromJson<DateTime>(json['date']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'media': serializer.toJson<int>(media),
+      'date': serializer.toJson<DateTime>(date),
+    };
+  }
+
+  HistoryItem copyWith({int? id, int? media, DateTime? date}) => HistoryItem(
+    id: id ?? this.id,
+    media: media ?? this.media,
+    date: date ?? this.date,
+  );
+  HistoryItem copyWithCompanion(HistoryItemsCompanion data) {
+    return HistoryItem(
+      id: data.id.present ? data.id.value : this.id,
+      media: data.media.present ? data.media.value : this.media,
+      date: data.date.present ? data.date.value : this.date,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('HistoryItem(')
+          ..write('id: $id, ')
+          ..write('media: $media, ')
+          ..write('date: $date')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, media, date);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is HistoryItem &&
+          other.id == this.id &&
+          other.media == this.media &&
+          other.date == this.date);
+}
+
+class HistoryItemsCompanion extends UpdateCompanion<HistoryItem> {
+  final Value<int> id;
+  final Value<int> media;
+  final Value<DateTime> date;
+  const HistoryItemsCompanion({
+    this.id = const Value.absent(),
+    this.media = const Value.absent(),
+    this.date = const Value.absent(),
+  });
+  HistoryItemsCompanion.insert({
+    this.id = const Value.absent(),
+    required int media,
+    required DateTime date,
+  }) : media = Value(media),
+       date = Value(date);
+  static Insertable<HistoryItem> custom({
+    Expression<int>? id,
+    Expression<int>? media,
+    Expression<DateTime>? date,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (media != null) 'media': media,
+      if (date != null) 'date': date,
+    });
+  }
+
+  HistoryItemsCompanion copyWith({
+    Value<int>? id,
+    Value<int>? media,
+    Value<DateTime>? date,
+  }) {
+    return HistoryItemsCompanion(
+      id: id ?? this.id,
+      media: media ?? this.media,
+      date: date ?? this.date,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (media.present) {
+      map['media'] = Variable<int>(media.value);
+    }
+    if (date.present) {
+      map['date'] = Variable<DateTime>(date.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('HistoryItemsCompanion(')
+          ..write('id: $id, ')
+          ..write('media: $media, ')
+          ..write('date: $date')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $TagItemsTable extends TagItems with TableInfo<$TagItemsTable, TagItem> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TagItemsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, name];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'tag_items';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<TagItem> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  TagItem map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return TagItem(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+    );
+  }
+
+  @override
+  $TagItemsTable createAlias(String alias) {
+    return $TagItemsTable(attachedDatabase, alias);
+  }
+}
+
+class TagItem extends DataClass implements Insertable<TagItem> {
+  final int id;
+  final String name;
+  const TagItem({required this.id, required this.name});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['name'] = Variable<String>(name);
+    return map;
+  }
+
+  TagItemsCompanion toCompanion(bool nullToAbsent) {
+    return TagItemsCompanion(id: Value(id), name: Value(name));
+  }
+
+  factory TagItem.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return TagItem(
+      id: serializer.fromJson<int>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'name': serializer.toJson<String>(name),
+    };
+  }
+
+  TagItem copyWith({int? id, String? name}) =>
+      TagItem(id: id ?? this.id, name: name ?? this.name);
+  TagItem copyWithCompanion(TagItemsCompanion data) {
+    return TagItem(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TagItem(')
+          ..write('id: $id, ')
+          ..write('name: $name')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, name);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is TagItem && other.id == this.id && other.name == this.name);
+}
+
+class TagItemsCompanion extends UpdateCompanion<TagItem> {
+  final Value<int> id;
+  final Value<String> name;
+  const TagItemsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+  });
+  TagItemsCompanion.insert({
+    this.id = const Value.absent(),
+    required String name,
+  }) : name = Value(name);
+  static Insertable<TagItem> custom({
+    Expression<int>? id,
+    Expression<String>? name,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+    });
+  }
+
+  TagItemsCompanion copyWith({Value<int>? id, Value<String>? name}) {
+    return TagItemsCompanion(id: id ?? this.id, name: name ?? this.name);
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TagItemsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
-  late final $VideoItemsTable videoItems = $VideoItemsTable(this);
+  late final $MediaItemsTable mediaItems = $MediaItemsTable(this);
+  late final $HistoryItemsTable historyItems = $HistoryItemsTable(this);
+  late final $TagItemsTable tagItems = $TagItemsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities => [videoItems];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [
+    mediaItems,
+    historyItems,
+    tagItems,
+  ];
 }
 
-typedef $$VideoItemsTableCreateCompanionBuilder =
-    VideoItemsCompanion Function({
+typedef $$MediaItemsTableCreateCompanionBuilder =
+    MediaItemsCompanion Function({
       Value<int> id,
       required String title,
       required DateTime date,
       required String type,
       required int duration,
       required int rate,
-      required List<String> tags,
+      required List<int> tags,
       required List<String> thumbs,
     });
-typedef $$VideoItemsTableUpdateCompanionBuilder =
-    VideoItemsCompanion Function({
+typedef $$MediaItemsTableUpdateCompanionBuilder =
+    MediaItemsCompanion Function({
       Value<int> id,
       Value<String> title,
       Value<DateTime> date,
       Value<String> type,
       Value<int> duration,
       Value<int> rate,
-      Value<List<String>> tags,
+      Value<List<int>> tags,
       Value<List<String>> thumbs,
     });
 
-class $$VideoItemsTableFilterComposer
-    extends Composer<_$AppDatabase, $VideoItemsTable> {
-  $$VideoItemsTableFilterComposer({
+class $$MediaItemsTableFilterComposer
+    extends Composer<_$AppDatabase, $MediaItemsTable> {
+  $$MediaItemsTableFilterComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -563,7 +1001,7 @@ class $$VideoItemsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnWithTypeConverterFilters<List<String>, List<String>, String> get tags =>
+  ColumnWithTypeConverterFilters<List<int>, List<int>, String> get tags =>
       $composableBuilder(
         column: $table.tags,
         builder: (column) => ColumnWithTypeConverterFilters(column),
@@ -576,9 +1014,9 @@ class $$VideoItemsTableFilterComposer
   );
 }
 
-class $$VideoItemsTableOrderingComposer
-    extends Composer<_$AppDatabase, $VideoItemsTable> {
-  $$VideoItemsTableOrderingComposer({
+class $$MediaItemsTableOrderingComposer
+    extends Composer<_$AppDatabase, $MediaItemsTable> {
+  $$MediaItemsTableOrderingComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -626,9 +1064,9 @@ class $$VideoItemsTableOrderingComposer
   );
 }
 
-class $$VideoItemsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $VideoItemsTable> {
-  $$VideoItemsTableAnnotationComposer({
+class $$MediaItemsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MediaItemsTable> {
+  $$MediaItemsTableAnnotationComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -653,42 +1091,42 @@ class $$VideoItemsTableAnnotationComposer
   GeneratedColumn<int> get rate =>
       $composableBuilder(column: $table.rate, builder: (column) => column);
 
-  GeneratedColumnWithTypeConverter<List<String>, String> get tags =>
+  GeneratedColumnWithTypeConverter<List<int>, String> get tags =>
       $composableBuilder(column: $table.tags, builder: (column) => column);
 
   GeneratedColumnWithTypeConverter<List<String>, String> get thumbs =>
       $composableBuilder(column: $table.thumbs, builder: (column) => column);
 }
 
-class $$VideoItemsTableTableManager
+class $$MediaItemsTableTableManager
     extends
         RootTableManager<
           _$AppDatabase,
-          $VideoItemsTable,
-          VideoItem,
-          $$VideoItemsTableFilterComposer,
-          $$VideoItemsTableOrderingComposer,
-          $$VideoItemsTableAnnotationComposer,
-          $$VideoItemsTableCreateCompanionBuilder,
-          $$VideoItemsTableUpdateCompanionBuilder,
+          $MediaItemsTable,
+          MediaItem,
+          $$MediaItemsTableFilterComposer,
+          $$MediaItemsTableOrderingComposer,
+          $$MediaItemsTableAnnotationComposer,
+          $$MediaItemsTableCreateCompanionBuilder,
+          $$MediaItemsTableUpdateCompanionBuilder,
           (
-            VideoItem,
-            BaseReferences<_$AppDatabase, $VideoItemsTable, VideoItem>,
+            MediaItem,
+            BaseReferences<_$AppDatabase, $MediaItemsTable, MediaItem>,
           ),
-          VideoItem,
+          MediaItem,
           PrefetchHooks Function()
         > {
-  $$VideoItemsTableTableManager(_$AppDatabase db, $VideoItemsTable table)
+  $$MediaItemsTableTableManager(_$AppDatabase db, $MediaItemsTable table)
     : super(
         TableManagerState(
           db: db,
           table: table,
           createFilteringComposer: () =>
-              $$VideoItemsTableFilterComposer($db: db, $table: table),
+              $$MediaItemsTableFilterComposer($db: db, $table: table),
           createOrderingComposer: () =>
-              $$VideoItemsTableOrderingComposer($db: db, $table: table),
+              $$MediaItemsTableOrderingComposer($db: db, $table: table),
           createComputedFieldComposer: () =>
-              $$VideoItemsTableAnnotationComposer($db: db, $table: table),
+              $$MediaItemsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
@@ -697,9 +1135,9 @@ class $$VideoItemsTableTableManager
                 Value<String> type = const Value.absent(),
                 Value<int> duration = const Value.absent(),
                 Value<int> rate = const Value.absent(),
-                Value<List<String>> tags = const Value.absent(),
+                Value<List<int>> tags = const Value.absent(),
                 Value<List<String>> thumbs = const Value.absent(),
-              }) => VideoItemsCompanion(
+              }) => MediaItemsCompanion(
                 id: id,
                 title: title,
                 date: date,
@@ -717,9 +1155,9 @@ class $$VideoItemsTableTableManager
                 required String type,
                 required int duration,
                 required int rate,
-                required List<String> tags,
+                required List<int> tags,
                 required List<String> thumbs,
-              }) => VideoItemsCompanion.insert(
+              }) => MediaItemsCompanion.insert(
                 id: id,
                 title: title,
                 date: date,
@@ -737,24 +1175,297 @@ class $$VideoItemsTableTableManager
       );
 }
 
-typedef $$VideoItemsTableProcessedTableManager =
+typedef $$MediaItemsTableProcessedTableManager =
     ProcessedTableManager<
       _$AppDatabase,
-      $VideoItemsTable,
-      VideoItem,
-      $$VideoItemsTableFilterComposer,
-      $$VideoItemsTableOrderingComposer,
-      $$VideoItemsTableAnnotationComposer,
-      $$VideoItemsTableCreateCompanionBuilder,
-      $$VideoItemsTableUpdateCompanionBuilder,
-      (VideoItem, BaseReferences<_$AppDatabase, $VideoItemsTable, VideoItem>),
-      VideoItem,
+      $MediaItemsTable,
+      MediaItem,
+      $$MediaItemsTableFilterComposer,
+      $$MediaItemsTableOrderingComposer,
+      $$MediaItemsTableAnnotationComposer,
+      $$MediaItemsTableCreateCompanionBuilder,
+      $$MediaItemsTableUpdateCompanionBuilder,
+      (MediaItem, BaseReferences<_$AppDatabase, $MediaItemsTable, MediaItem>),
+      MediaItem,
+      PrefetchHooks Function()
+    >;
+typedef $$HistoryItemsTableCreateCompanionBuilder =
+    HistoryItemsCompanion Function({
+      Value<int> id,
+      required int media,
+      required DateTime date,
+    });
+typedef $$HistoryItemsTableUpdateCompanionBuilder =
+    HistoryItemsCompanion Function({
+      Value<int> id,
+      Value<int> media,
+      Value<DateTime> date,
+    });
+
+class $$HistoryItemsTableFilterComposer
+    extends Composer<_$AppDatabase, $HistoryItemsTable> {
+  $$HistoryItemsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get media => $composableBuilder(
+    column: $table.media,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$HistoryItemsTableOrderingComposer
+    extends Composer<_$AppDatabase, $HistoryItemsTable> {
+  $$HistoryItemsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get media => $composableBuilder(
+    column: $table.media,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$HistoryItemsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $HistoryItemsTable> {
+  $$HistoryItemsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get media =>
+      $composableBuilder(column: $table.media, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get date =>
+      $composableBuilder(column: $table.date, builder: (column) => column);
+}
+
+class $$HistoryItemsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $HistoryItemsTable,
+          HistoryItem,
+          $$HistoryItemsTableFilterComposer,
+          $$HistoryItemsTableOrderingComposer,
+          $$HistoryItemsTableAnnotationComposer,
+          $$HistoryItemsTableCreateCompanionBuilder,
+          $$HistoryItemsTableUpdateCompanionBuilder,
+          (
+            HistoryItem,
+            BaseReferences<_$AppDatabase, $HistoryItemsTable, HistoryItem>,
+          ),
+          HistoryItem,
+          PrefetchHooks Function()
+        > {
+  $$HistoryItemsTableTableManager(_$AppDatabase db, $HistoryItemsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$HistoryItemsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$HistoryItemsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$HistoryItemsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> media = const Value.absent(),
+                Value<DateTime> date = const Value.absent(),
+              }) => HistoryItemsCompanion(id: id, media: media, date: date),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int media,
+                required DateTime date,
+              }) => HistoryItemsCompanion.insert(
+                id: id,
+                media: media,
+                date: date,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$HistoryItemsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $HistoryItemsTable,
+      HistoryItem,
+      $$HistoryItemsTableFilterComposer,
+      $$HistoryItemsTableOrderingComposer,
+      $$HistoryItemsTableAnnotationComposer,
+      $$HistoryItemsTableCreateCompanionBuilder,
+      $$HistoryItemsTableUpdateCompanionBuilder,
+      (
+        HistoryItem,
+        BaseReferences<_$AppDatabase, $HistoryItemsTable, HistoryItem>,
+      ),
+      HistoryItem,
+      PrefetchHooks Function()
+    >;
+typedef $$TagItemsTableCreateCompanionBuilder =
+    TagItemsCompanion Function({Value<int> id, required String name});
+typedef $$TagItemsTableUpdateCompanionBuilder =
+    TagItemsCompanion Function({Value<int> id, Value<String> name});
+
+class $$TagItemsTableFilterComposer
+    extends Composer<_$AppDatabase, $TagItemsTable> {
+  $$TagItemsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$TagItemsTableOrderingComposer
+    extends Composer<_$AppDatabase, $TagItemsTable> {
+  $$TagItemsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$TagItemsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TagItemsTable> {
+  $$TagItemsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+}
+
+class $$TagItemsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TagItemsTable,
+          TagItem,
+          $$TagItemsTableFilterComposer,
+          $$TagItemsTableOrderingComposer,
+          $$TagItemsTableAnnotationComposer,
+          $$TagItemsTableCreateCompanionBuilder,
+          $$TagItemsTableUpdateCompanionBuilder,
+          (TagItem, BaseReferences<_$AppDatabase, $TagItemsTable, TagItem>),
+          TagItem,
+          PrefetchHooks Function()
+        > {
+  $$TagItemsTableTableManager(_$AppDatabase db, $TagItemsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TagItemsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TagItemsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TagItemsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+              }) => TagItemsCompanion(id: id, name: name),
+          createCompanionCallback:
+              ({Value<int> id = const Value.absent(), required String name}) =>
+                  TagItemsCompanion.insert(id: id, name: name),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$TagItemsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TagItemsTable,
+      TagItem,
+      $$TagItemsTableFilterComposer,
+      $$TagItemsTableOrderingComposer,
+      $$TagItemsTableAnnotationComposer,
+      $$TagItemsTableCreateCompanionBuilder,
+      $$TagItemsTableUpdateCompanionBuilder,
+      (TagItem, BaseReferences<_$AppDatabase, $TagItemsTable, TagItem>),
+      TagItem,
       PrefetchHooks Function()
     >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
   $AppDatabaseManager(this._db);
-  $$VideoItemsTableTableManager get videoItems =>
-      $$VideoItemsTableTableManager(_db, _db.videoItems);
+  $$MediaItemsTableTableManager get mediaItems =>
+      $$MediaItemsTableTableManager(_db, _db.mediaItems);
+  $$HistoryItemsTableTableManager get historyItems =>
+      $$HistoryItemsTableTableManager(_db, _db.historyItems);
+  $$TagItemsTableTableManager get tagItems =>
+      $$TagItemsTableTableManager(_db, _db.tagItems);
 }
