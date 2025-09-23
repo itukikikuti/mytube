@@ -1,14 +1,15 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:drift/drift.dart' as drift;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:path/path.dart' as path;
 import 'package:intl/intl.dart';
 import 'package:flutter/gestures.dart';
+import 'package:image/image.dart' as img;
 
 import 'database.dart';
 
@@ -430,7 +431,40 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
               );
               await appDatabase.into(appDatabase.historyItems).insert(newHistory);
             },
-          )
+          ),
+          IconButton(
+            icon: Icon(Icons.image),
+            onPressed: () async {
+              final Uint8List? screenshotData = await _player.screenshot();
+
+              if (screenshotData == null) {
+                print("スクリーンショットの取得に失敗しました。");
+                return;
+              }
+
+              final img.Image? originalImage = img.decodeImage(screenshotData);
+              if (originalImage == null) {
+                print("画像のデコードに失敗しました。");
+                return;
+              }
+
+              final img.Image resizedImage = img.copyResize(
+                originalImage,
+                height: 180,
+              );
+
+              final Uint8List resizedImageData = Uint8List.fromList(
+                img.encodeJpg(resizedImage, quality: 90),
+              );
+
+              final encoded = base64Encode(resizedImageData);
+              print(encoded);
+              final query = appDatabase.update(appDatabase.mediaItems)..where((t) => t.id.equals(widget.mediaItem.id));
+              widget.mediaItem.thumbs.add(encoded);
+              final result = await query.write(MediaItemsCompanion(thumbs: drift.Value(widget.mediaItem.thumbs)));
+              print('$result 件のデータを更新しました。');
+            },
+          ),
         ],
       ),
       backgroundColor: Colors.black,
