@@ -52,25 +52,22 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('MyTube'),
-      ),
-      body: const MediaGallery(),
-    );
-  }
-}
+  bool _isFilterApplied = false;
+  bool _show5Star = true;
+  bool _show4Star = true;
+  bool _show3Star = true;
+  bool _show2Star = true;
+  bool _show1Star = true;
+  bool _show0Star = true;
+  bool _showVideos = true;
+  bool _showImages = false;
+  bool _showGifs = false;
 
-class MediaGallery extends StatefulWidget {
-  const MediaGallery({super.key});
+  final List<String> _categories = ['追加順', 'シャッフル', '最近再生した', '再生数', '長さ'];
+  String? _selectedCategory = '追加順';
 
-  @override
-  State<MediaGallery> createState() => _MediaGalleryState();
-}
-
-class _MediaGalleryState extends State<MediaGallery> {
+  final List<String> _allTags = [];
+  final Set<String> _selectedTags = {};
   List<MediaItem> _mediaFiles = [];
   bool _isLoading = true;
   String _statusMessage = '';
@@ -96,12 +93,21 @@ class _MediaGalleryState extends State<MediaGallery> {
   @override
   void initState() {
     super.initState();
+    _loadTags();
     _scanAndLoadMedia();
   }
 
-  @override
-  void dispose() {
-    super.dispose();
+  void _loadTags() async {
+    final query = appDatabase.select(appDatabase.tagItems)..orderBy([
+      (t) => drift.OrderingTerm(expression: t.name, mode: drift.OrderingMode.asc)
+    ]);
+    final allTags = await query.get();
+
+    setState(() {
+      for (final tag in allTags) {
+        _allTags.add(tag.name);
+      }
+    });
   }
 
   Future<void> _scanAndLoadMedia() async {
@@ -165,16 +171,80 @@ class _MediaGalleryState extends State<MediaGallery> {
       //   _statusMessage = 'Loading media from database...';
       // });
 
-      final allItems = await (appDatabase.select(appDatabase.mediaItems)
+      drift.Expression<bool> filter(MediaItems t) {
+        return ((t.rate.equals(5) & drift.Constant(_show5Star)) |
+        (t.rate.equals(4) & drift.Constant(_show4Star)) |
+        (t.rate.equals(3) & drift.Constant(_show3Star)) |
+        (t.rate.equals(2) & drift.Constant(_show2Star)) |
+        (t.rate.equals(1) & drift.Constant(_show1Star)) |
+        (t.rate.equals(0) & drift.Constant(_show0Star))) &
+        ((t.type.equals('video') & drift.Constant(_showVideos)) |
+        (t.type.equals('image') & drift.Constant(_showImages)) |
+        (t.type.equals('anime') & drift.Constant(_showGifs)));
+      }
+
+      late final List<MediaItem> allItems;
+
+      switch (_selectedCategory) {
+        case 'シャッフル':
+          final query = appDatabase.select(appDatabase.mediaItems)..where(filter)..orderBy([(t) => drift.OrderingTerm.random()]);
+          allItems = await query.get();
+          break;
+        case '最近再生した':
+          final latestHistoryDate = appDatabase.historyItems.date.max();
+          // 1. ソートされたIDのリストを取得するクエリ
+          final sortedIdQuery = appDatabase.selectOnly(appDatabase.mediaItems)
+            ..addColumns([appDatabase.mediaItems.id])
+            ..join([
+              drift.leftOuterJoin(appDatabase.historyItems, appDatabase.historyItems.media.equalsExp(appDatabase.mediaItems.id))
+            ])
+            ..where(filter(appDatabase.mediaItems))
+            ..groupBy([appDatabase.mediaItems.id]) // IDでグループ化
             ..orderBy([
-              (t) => drift.OrderingTerm(
-                  expression: t.date, mode: drift.OrderingMode.desc)
-            ]))
-          .get();
+              drift.OrderingTerm(expression: latestHistoryDate, mode: drift.OrderingMode.desc, nulls: drift.NullsOrder.last),
+              drift.OrderingTerm(expression: appDatabase.mediaItems.date, mode: drift.OrderingMode.desc),
+            ]);
+
+          // 2. IDリストを取得し、その順序でMediaItemを取得
+          final sortedIds = (await sortedIdQuery.map((row) => row.read(appDatabase.mediaItems.id)).get()).whereType<int>().toList();
+          final sortedItems = await (appDatabase.select(appDatabase.mediaItems)..where((t) => t.id.isIn(sortedIds))).get();
+          // データベースから取得した順序ではなく、IDリストの順序に並べ替える
+          allItems = sortedIds.map((id) => sortedItems.firstWhere((item) => item.id == id)).toList();
+          break;
+        case '再生数':
+          final playCount = appDatabase.historyItems.id.count();
+          // 1.　ソートされたIDのリストを取得するクエリ
+          final sortedIdQuery = appDatabase.selectOnly(appDatabase.mediaItems)
+            ..addColumns([appDatabase.mediaItems.id])
+            ..join([
+              drift.leftOuterJoin(appDatabase.historyItems, appDatabase.historyItems.media.equalsExp(appDatabase.mediaItems.id))
+            ])
+            ..where(filter(appDatabase.mediaItems))
+            ..groupBy([appDatabase.mediaItems.id]) // IDでグループ化
+            ..orderBy([
+              drift.OrderingTerm(expression: playCount, mode: drift.OrderingMode.desc),
+              drift.OrderingTerm(expression: appDatabase.mediaItems.date, mode: drift.OrderingMode.desc),
+            ]);
+
+          // 2. IDリストを取得し、その順序でMediaItemを取得
+          final sortedIds = (await sortedIdQuery.map((row) => row.read(appDatabase.mediaItems.id)).get()).whereType<int>().toList();
+          final sortedItems = await (appDatabase.select(appDatabase.mediaItems)..where((t) => t.id.isIn(sortedIds))).get();
+          // データベースから取得した順序ではなく、IDリストの順序に並べ替える
+          allItems = sortedIds.map((id) => sortedItems.firstWhere((item) => item.id == id)).toList();
+          break;
+        case '長さ':
+          final query = appDatabase.select(appDatabase.mediaItems)..where(filter)..orderBy([(t) => drift.OrderingTerm(expression: t.duration, mode: drift.OrderingMode.desc)]);
+          allItems = await query.get();
+          break;
+        case '追加順':
+        default:
+          final query = appDatabase.select(appDatabase.mediaItems)..where(filter)..orderBy([(t) => drift.OrderingTerm(expression: t.date, mode: drift.OrderingMode.desc)]);
+          allItems = await query.get();
+          break;
+      }
       
       setState(() {
         _mediaFiles = allItems;
-        // _mediaFiles = allItems.take(30).toList();
         _isLoading = false;
       });
     } catch (e) {
@@ -213,18 +283,202 @@ class _MediaGalleryState extends State<MediaGallery> {
       return const Center(child: Text('No media files found in the database.'));
     }
 
-    return GridView.builder(
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 300,
-        childAspectRatio: 1.1,
-        crossAxisSpacing: 4,
-        mainAxisSpacing: 4,
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('MyTube'),
       ),
-      itemCount: _mediaFiles.length,
-      itemBuilder: (context, index) {
-        final mediaItem = _mediaFiles[index];
-        return MediaCard(mediaItem: mediaItem);
-      },
+      drawer: Drawer(
+        width: 500,
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            const SizedBox(height: 50),
+
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: ElevatedButton(
+                onPressed: () async {
+                  final filters = {
+                    'isNewOnly': _isFilterApplied,
+                    'category': _selectedCategory,
+                    'tags': _selectedTags,
+                  };
+                  print('適用されたフィルター: $filters');
+
+                  Navigator.pop(context);
+
+                  await _scanAndLoadMedia();
+
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('フィルターを適用しました')));
+                },
+                child: const Text('この条件で絞り込む'),
+              ),
+            ),
+
+            const Divider(),
+
+            CheckboxListTile(
+              title: const Text('❤️❤️❤️❤️❤️'),
+              value: _show5Star,
+              onChanged: (bool? newValue) {
+                setState(() {
+                  _show5Star = newValue!;
+                });
+              },
+            ),
+            CheckboxListTile(
+              title: const Text('❤️❤️❤️❤️🤍'),
+              value: _show4Star,
+              onChanged: (bool? newValue) {
+                setState(() {
+                  _show4Star = newValue!;
+                });
+              },
+            ),
+            CheckboxListTile(
+              title: const Text('❤️❤️❤️🤍🤍'),
+              value: _show3Star,
+              onChanged: (bool? newValue) {
+                setState(() {
+                  _show3Star = newValue!;
+                });
+              },
+            ),
+            CheckboxListTile(
+              title: const Text('❤️❤️🤍🤍🤍'),
+              value: _show2Star,
+              onChanged: (bool? newValue) {
+                setState(() {
+                  _show2Star = newValue!;
+                });
+              },
+            ),
+            CheckboxListTile(
+              title: const Text('❤️🤍🤍🤍🤍'),
+              value: _show1Star,
+              onChanged: (bool? newValue) {
+                setState(() {
+                  _show1Star = newValue!;
+                });
+              },
+            ),
+            CheckboxListTile(
+              title: const Text('🤍🤍🤍🤍🤍'),
+              value: _show0Star,
+              onChanged: (bool? newValue) {
+                setState(() {
+                  _show0Star = newValue!;
+                });
+              },
+            ),
+
+            const Divider(),
+
+            CheckboxListTile(
+              title: const Text('動画'),
+              value: _showVideos,
+              onChanged: (bool? newValue) async {
+                setState(() {
+                  _showVideos = newValue!;
+                });
+              },
+            ),
+            CheckboxListTile(
+              title: const Text('画像'),
+              value: _showImages,
+              onChanged: (bool? newValue) async {
+                setState(() {
+                  _showImages = newValue!;
+                });
+              },
+            ),
+            CheckboxListTile(
+              title: const Text('GIF'),
+              value: _showGifs,
+              onChanged: (bool? newValue) async {
+                setState(() {
+                  _showGifs = newValue!;
+                });
+              },
+            ),
+
+            const Divider(),
+
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 8.0,
+              ),
+              child: DropdownButtonFormField<String>(
+                decoration: const InputDecoration(
+                  labelText: 'カテゴリ選択',
+                  border: OutlineInputBorder(),
+                ),
+                value: _selectedCategory,
+                hint: const Text('選択してください'),
+                items: _categories.map((String category) {
+                  return DropdownMenuItem<String>(
+                    value: category,
+                    child: Text(category),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _selectedCategory = newValue;
+                  });
+                },
+              ),
+            ),
+
+            const Divider(),
+
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text(
+                'タグで絞り込む',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Wrap(
+                spacing: 8.0,
+                runSpacing: 4.0,
+                children: _allTags.map((String tag) {
+                  return FilterChip(
+                    label: Text(tag),
+                    selected: _selectedTags.contains(tag),
+                    onSelected: (bool selected) {
+                      setState(() {
+                        if (selected) {
+                          _selectedTags.add(tag);
+                        } else {
+                          _selectedTags.remove(tag);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ),
+      ),
+      body: GridView.builder(
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 300,
+          childAspectRatio: 1.1,
+          crossAxisSpacing: 4,
+          mainAxisSpacing: 4,
+        ),
+        itemCount: _mediaFiles.length,
+        itemBuilder: (context, index) {
+          final mediaItem = _mediaFiles[index];
+          return MediaCard(mediaItem: mediaItem);
+        },
+      ),
     );
   }
 }
@@ -253,8 +507,17 @@ class _MediaCardState extends State<MediaCard> {
     late final Widget thumb;
     
     if (widget.mediaItem.type == 'video') {
+      final time = DateTime.fromMillisecondsSinceEpoch(widget.mediaItem.duration * 1000, isUtc: true);
+      late final formatter;
+      if (widget.mediaItem.duration >= 3600) {
+        formatter = DateFormat('HH:mm:ss');
+      } else {
+        formatter = DateFormat('mm:ss');
+      }
+      late final Widget stack;
+
       if (widget.mediaItem.thumbs.isEmpty) {
-        thumb = Container(
+        stack = Container(
           color: Colors.black,
           child: const Icon(
             Icons.play_circle_outline_rounded,
@@ -264,12 +527,12 @@ class _MediaCardState extends State<MediaCard> {
         );
       } else {
         if (widget.mediaItem.thumbs.length == 1) {
-          thumb = Image.memory(
+          stack = Image.memory(
             base64Decode(widget.mediaItem.thumbs.first),
             fit: BoxFit.fitHeight,
           );
         } else {
-          thumb = CarouselSlider.builder(
+          stack = CarouselSlider.builder(
             itemCount: widget.mediaItem.thumbs.length,
             itemBuilder: (context, itemIndex, pageViewIndex) {
               return Image.memory(
@@ -286,6 +549,32 @@ class _MediaCardState extends State<MediaCard> {
           );
         }
       }
+
+      thumb = Stack(
+        alignment: Alignment.center,
+        children: [
+          stack,
+          Align(
+            alignment: Alignment.bottomRight,
+            child: Container(
+              margin: const EdgeInsets.all(4),
+              padding: const EdgeInsets.only(left: 4, right: 4, top: 0, bottom: 2),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                formatter.format(time),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            )
+          )
+        ]
+      );
     } else {
       thumb = Image.file(
         File('N:\\Videos\\${widget.mediaItem.title}'),
@@ -403,6 +692,7 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
       _player = Player();
       _controller = VideoController(_player);
       final uri = Uri.file('N:\\Videos\\${widget.mediaItem.title}', windows: Platform.isWindows);
+      _player.setPlaylistMode(PlaylistMode.single);
       _player.open(Media(uri.toString()));
     }
   }
@@ -460,7 +750,9 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
               final encoded = base64Encode(resizedImageData);
               print(encoded);
               final query = appDatabase.update(appDatabase.mediaItems)..where((t) => t.id.equals(widget.mediaItem.id));
-              widget.mediaItem.thumbs.add(encoded);
+              setState(() {
+                widget.mediaItem.thumbs.add(encoded);
+              });
               final result = await query.write(MediaItemsCompanion(thumbs: drift.Value(widget.mediaItem.thumbs)));
               print('$result 件のデータを更新しました。');
             },
