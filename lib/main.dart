@@ -13,13 +13,14 @@ import 'package:image/image.dart' as img;
 
 import 'database.dart';
 
-late AppDatabase appDatabase;
+late AppDatabase db;
+final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
   final dbFile = File('db.sqlite'); 
-  appDatabase = AppDatabase(NativeDatabase(dbFile));
+  db = AppDatabase(NativeDatabase(dbFile));
   runApp(const MyApp());
 }
 
@@ -39,6 +40,7 @@ class MyApp extends StatelessWidget {
           PointerDeviceKind.mouse,
         }
       ),
+      scaffoldMessengerKey: scaffoldMessengerKey,
       home: const HomePage(),
     );
   }
@@ -52,16 +54,19 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  bool _isFilterApplied = false;
-  bool _show5Star = true;
-  bool _show4Star = true;
-  bool _show3Star = true;
-  bool _show2Star = true;
-  bool _show1Star = true;
-  bool _show0Star = true;
-  bool _showVideos = true;
-  bool _showImages = false;
-  bool _showGifs = false;
+  final Map<int, bool> _rateFilter = {
+    5: true,
+    4: true,
+    3: true,
+    2: true,
+    1: true,
+    0: true,
+  };
+  final Map<String, bool> _typeFilter = {
+    'video': true,
+    'image': false,
+    'anime': false,
+  };
 
   final List<String> _categories = ['追加順', 'シャッフル', '最近再生した', '再生数', '長さ'];
   String? _selectedCategory = '追加順';
@@ -73,22 +78,22 @@ class _HomePageState extends State<HomePage> {
   String _statusMessage = '';
   String? _error;
 
-  final _supportedImageExtensions = [
-    '.jpg',
-    '.jpeg',
-    '.png',
-    '.gif',
-    '.bmp',
-    '.webp'
-  ];
-  final _supportedVideoExtensions = [
-    '.mp4',
-    '.mkv',
-    '.avi',
-    '.mov',
-    '.wmv',
-    '.webm'
-  ];
+  // final _supportedImageExtensions = [
+  //   '.jpg',
+  //   '.jpeg',
+  //   '.png',
+  //   '.gif',
+  //   '.bmp',
+  //   '.webp'
+  // ];
+  // final _supportedVideoExtensions = [
+  //   '.mp4',
+  //   '.mkv',
+  //   '.avi',
+  //   '.mov',
+  //   '.wmv',
+  //   '.webm'
+  // ];
 
   @override
   void initState() {
@@ -98,7 +103,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _loadTags() async {
-    final query = appDatabase.select(appDatabase.tagItems)..orderBy([
+    final query = db.select(db.tagItems)..orderBy([
       (t) => drift.OrderingTerm(expression: t.name, mode: drift.OrderingMode.asc)
     ]);
     final allTags = await query.get();
@@ -171,74 +176,85 @@ class _HomePageState extends State<HomePage> {
       //   _statusMessage = 'Loading media from database...';
       // });
 
-      drift.Expression<bool> filter(MediaItems t) {
-        return ((t.rate.equals(5) & drift.Constant(_show5Star)) |
-        (t.rate.equals(4) & drift.Constant(_show4Star)) |
-        (t.rate.equals(3) & drift.Constant(_show3Star)) |
-        (t.rate.equals(2) & drift.Constant(_show2Star)) |
-        (t.rate.equals(1) & drift.Constant(_show1Star)) |
-        (t.rate.equals(0) & drift.Constant(_show0Star))) &
-        ((t.type.equals('video') & drift.Constant(_showVideos)) |
-        (t.type.equals('image') & drift.Constant(_showImages)) |
-        (t.type.equals('anime') & drift.Constant(_showGifs)));
+      drift.Expression<bool> filter(MediaItems item) {
+        final enabledRates = _rateFilter.entries
+          .where((entry) => entry.value)
+          .map((entry) => entry.key)
+          .toList();
+        final enabledTypes = _typeFilter.entries
+          .where((entry) => entry.value)
+          .map((entry) => entry.key)
+          .toList();
+
+        drift.Expression<bool> rateFilter = const drift.Constant(false);
+        if (enabledRates.isNotEmpty) {
+          rateFilter = item.rate.isIn(enabledRates);
+        }
+
+        drift.Expression<bool> typeFilter = const drift.Constant(false);
+        if (enabledTypes.isNotEmpty) {
+          typeFilter = item.type.isIn(enabledTypes);
+        }
+
+        return rateFilter & typeFilter;
       }
 
       late final List<MediaItem> allItems;
 
       switch (_selectedCategory) {
         case 'シャッフル':
-          final query = appDatabase.select(appDatabase.mediaItems)..where(filter)..orderBy([(t) => drift.OrderingTerm.random()]);
+          final query = db.select(db.mediaItems)..where(filter)..orderBy([(t) => drift.OrderingTerm.random()]);
           allItems = await query.get();
           break;
         case '最近再生した':
-          final latestHistoryDate = appDatabase.historyItems.date.max();
+          final latestHistoryDate = db.historyItems.date.max();
           // 1. ソートされたIDのリストを取得するクエリ
-          final sortedIdQuery = appDatabase.selectOnly(appDatabase.mediaItems)
-            ..addColumns([appDatabase.mediaItems.id])
+          final sortedIdQuery = db.selectOnly(db.mediaItems)
+            ..addColumns([db.mediaItems.id])
             ..join([
-              drift.leftOuterJoin(appDatabase.historyItems, appDatabase.historyItems.media.equalsExp(appDatabase.mediaItems.id))
+              drift.leftOuterJoin(db.historyItems, db.historyItems.media.equalsExp(db.mediaItems.id))
             ])
-            ..where(filter(appDatabase.mediaItems))
-            ..groupBy([appDatabase.mediaItems.id]) // IDでグループ化
+            ..where(filter(db.mediaItems))
+            ..groupBy([db.mediaItems.id]) // IDでグループ化
             ..orderBy([
               drift.OrderingTerm(expression: latestHistoryDate, mode: drift.OrderingMode.desc, nulls: drift.NullsOrder.last),
-              drift.OrderingTerm(expression: appDatabase.mediaItems.date, mode: drift.OrderingMode.desc),
+              drift.OrderingTerm(expression: db.mediaItems.date, mode: drift.OrderingMode.desc),
             ]);
 
           // 2. IDリストを取得し、その順序でMediaItemを取得
-          final sortedIds = (await sortedIdQuery.map((row) => row.read(appDatabase.mediaItems.id)).get()).whereType<int>().toList();
-          final sortedItems = await (appDatabase.select(appDatabase.mediaItems)..where((t) => t.id.isIn(sortedIds))).get();
+          final sortedIds = (await sortedIdQuery.map((row) => row.read(db.mediaItems.id)).get()).whereType<int>().toList();
+          final sortedItems = await (db.select(db.mediaItems)..where((t) => t.id.isIn(sortedIds))).get();
           // データベースから取得した順序ではなく、IDリストの順序に並べ替える
           allItems = sortedIds.map((id) => sortedItems.firstWhere((item) => item.id == id)).toList();
           break;
         case '再生数':
-          final playCount = appDatabase.historyItems.id.count();
+          final playCount = db.historyItems.id.count();
           // 1.　ソートされたIDのリストを取得するクエリ
-          final sortedIdQuery = appDatabase.selectOnly(appDatabase.mediaItems)
-            ..addColumns([appDatabase.mediaItems.id])
+          final sortedIdQuery = db.selectOnly(db.mediaItems)
+            ..addColumns([db.mediaItems.id])
             ..join([
-              drift.leftOuterJoin(appDatabase.historyItems, appDatabase.historyItems.media.equalsExp(appDatabase.mediaItems.id))
+              drift.leftOuterJoin(db.historyItems, db.historyItems.media.equalsExp(db.mediaItems.id))
             ])
-            ..where(filter(appDatabase.mediaItems))
-            ..groupBy([appDatabase.mediaItems.id]) // IDでグループ化
+            ..where(filter(db.mediaItems))
+            ..groupBy([db.mediaItems.id]) // IDでグループ化
             ..orderBy([
               drift.OrderingTerm(expression: playCount, mode: drift.OrderingMode.desc),
-              drift.OrderingTerm(expression: appDatabase.mediaItems.date, mode: drift.OrderingMode.desc),
+              drift.OrderingTerm(expression: db.mediaItems.date, mode: drift.OrderingMode.desc),
             ]);
 
           // 2. IDリストを取得し、その順序でMediaItemを取得
-          final sortedIds = (await sortedIdQuery.map((row) => row.read(appDatabase.mediaItems.id)).get()).whereType<int>().toList();
-          final sortedItems = await (appDatabase.select(appDatabase.mediaItems)..where((t) => t.id.isIn(sortedIds))).get();
+          final sortedIds = (await sortedIdQuery.map((row) => row.read(db.mediaItems.id)).get()).whereType<int>().toList();
+          final sortedItems = await (db.select(db.mediaItems)..where((t) => t.id.isIn(sortedIds))).get();
           // データベースから取得した順序ではなく、IDリストの順序に並べ替える
           allItems = sortedIds.map((id) => sortedItems.firstWhere((item) => item.id == id)).toList();
           break;
         case '長さ':
-          final query = appDatabase.select(appDatabase.mediaItems)..where(filter)..orderBy([(t) => drift.OrderingTerm(expression: t.duration, mode: drift.OrderingMode.desc)]);
+          final query = db.select(db.mediaItems)..where(filter)..orderBy([(t) => drift.OrderingTerm(expression: t.duration, mode: drift.OrderingMode.desc)]);
           allItems = await query.get();
           break;
         case '追加順':
         default:
-          final query = appDatabase.select(appDatabase.mediaItems)..where(filter)..orderBy([(t) => drift.OrderingTerm(expression: t.date, mode: drift.OrderingMode.desc)]);
+          final query = db.select(db.mediaItems)..where(filter)..orderBy([(t) => drift.OrderingTerm(expression: t.date, mode: drift.OrderingMode.desc)]);
           allItems = await query.get();
           break;
       }
@@ -298,20 +314,13 @@ class _HomePageState extends State<HomePage> {
               padding: const EdgeInsets.all(16.0),
               child: ElevatedButton(
                 onPressed: () async {
-                  final filters = {
-                    'isNewOnly': _isFilterApplied,
-                    'category': _selectedCategory,
-                    'tags': _selectedTags,
-                  };
-                  print('適用されたフィルター: $filters');
-
                   Navigator.pop(context);
 
                   await _scanAndLoadMedia();
 
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(const SnackBar(content: Text('フィルターを適用しました')));
+                  scaffoldMessengerKey.currentState?.showSnackBar(
+                    const SnackBar(content: Text('フィルターを適用しました'))
+                  );
                 },
                 child: const Text('この条件で絞り込む'),
               ),
@@ -319,87 +328,44 @@ class _HomePageState extends State<HomePage> {
 
             const Divider(),
 
-            CheckboxListTile(
-              title: const Text('❤️❤️❤️❤️❤️'),
-              value: _show5Star,
-              onChanged: (bool? newValue) {
-                setState(() {
-                  _show5Star = newValue!;
-                });
-              },
-            ),
-            CheckboxListTile(
-              title: const Text('❤️❤️❤️❤️🤍'),
-              value: _show4Star,
-              onChanged: (bool? newValue) {
-                setState(() {
-                  _show4Star = newValue!;
-                });
-              },
-            ),
-            CheckboxListTile(
-              title: const Text('❤️❤️❤️🤍🤍'),
-              value: _show3Star,
-              onChanged: (bool? newValue) {
-                setState(() {
-                  _show3Star = newValue!;
-                });
-              },
-            ),
-            CheckboxListTile(
-              title: const Text('❤️❤️🤍🤍🤍'),
-              value: _show2Star,
-              onChanged: (bool? newValue) {
-                setState(() {
-                  _show2Star = newValue!;
-                });
-              },
-            ),
-            CheckboxListTile(
-              title: const Text('❤️🤍🤍🤍🤍'),
-              value: _show1Star,
-              onChanged: (bool? newValue) {
-                setState(() {
-                  _show1Star = newValue!;
-                });
-              },
-            ),
-            CheckboxListTile(
-              title: const Text('🤍🤍🤍🤍🤍'),
-              value: _show0Star,
-              onChanged: (bool? newValue) {
-                setState(() {
-                  _show0Star = newValue!;
-                });
-              },
-            ),
+            ..._rateFilter.keys.map((rate) {
+              return CheckboxListTile(
+                title: Text('❤️' * rate + '🤍' * (5 - rate)),
+                value: _rateFilter[rate],
+                onChanged: (newValue) {
+                  setState(() {
+                    _rateFilter[rate] = newValue!;
+                  });
+                },
+              );
+            }),
 
             const Divider(),
 
             CheckboxListTile(
               title: const Text('動画'),
-              value: _showVideos,
-              onChanged: (bool? newValue) async {
+              value: _typeFilter['video'],
+              onChanged: (newValue) async {
                 setState(() {
-                  _showVideos = newValue!;
+                  _typeFilter['video'] = newValue!;
                 });
               },
             ),
             CheckboxListTile(
               title: const Text('画像'),
-              value: _showImages,
-              onChanged: (bool? newValue) async {
+              value: _typeFilter['image'],
+              onChanged: (newValue) async {
                 setState(() {
-                  _showImages = newValue!;
+                  _typeFilter['image'] = newValue!;
                 });
               },
             ),
             CheckboxListTile(
               title: const Text('GIF'),
-              value: _showGifs,
-              onChanged: (bool? newValue) async {
+              value: _typeFilter['anime'],
+              onChanged: (newValue) async {
                 setState(() {
-                  _showGifs = newValue!;
+                  _typeFilter['anime'] = newValue!;
                 });
               },
             ),
@@ -416,8 +382,7 @@ class _HomePageState extends State<HomePage> {
                   labelText: 'カテゴリ選択',
                   border: OutlineInputBorder(),
                 ),
-                value: _selectedCategory,
-                hint: const Text('選択してください'),
+                initialValue: _selectedCategory,
                 items: _categories.map((String category) {
                   return DropdownMenuItem<String>(
                     value: category,
@@ -497,7 +462,7 @@ class _MediaCardState extends State<MediaCard> {
 
   Future<int> fetchData() async {
     // await Future.delayed(const Duration(seconds: 2));
-    final query = appDatabase.select(appDatabase.historyItems)..where((t) => t.media.equals(widget.mediaItem.id));
+    final query = db.select(db.historyItems)..where((t) => t.media.equals(widget.mediaItem.id));
     final historyItems = await query.get();
     return historyItems.length;
   }
@@ -508,7 +473,7 @@ class _MediaCardState extends State<MediaCard> {
     
     if (widget.mediaItem.type == 'video') {
       final time = DateTime.fromMillisecondsSinceEpoch(widget.mediaItem.duration * 1000, isUtc: true);
-      late final formatter;
+      late final DateFormat formatter;
       if (widget.mediaItem.duration >= 3600) {
         formatter = DateFormat('HH:mm:ss');
       } else {
@@ -719,7 +684,7 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
                 media: drift.Value(widget.mediaItem.id),
                 date: drift.Value(DateTime.now())
               );
-              await appDatabase.into(appDatabase.historyItems).insert(newHistory);
+              await db.into(db.historyItems).insert(newHistory);
             },
           ),
           IconButton(
@@ -728,13 +693,17 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
               final Uint8List? screenshotData = await _player.screenshot();
 
               if (screenshotData == null) {
-                print("スクリーンショットの取得に失敗しました。");
+                scaffoldMessengerKey.currentState?.showSnackBar(
+                  const SnackBar(content: Text('サムネイルの取得に失敗しました'))
+                );
                 return;
               }
 
               final img.Image? originalImage = img.decodeImage(screenshotData);
               if (originalImage == null) {
-                print("画像のデコードに失敗しました。");
+                scaffoldMessengerKey.currentState?.showSnackBar(
+                  const SnackBar(content: Text('サムネイルの取得に失敗しました'))
+                );
                 return;
               }
 
@@ -748,13 +717,14 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
               );
 
               final encoded = base64Encode(resizedImageData);
-              print(encoded);
-              final query = appDatabase.update(appDatabase.mediaItems)..where((t) => t.id.equals(widget.mediaItem.id));
+              final query = db.update(db.mediaItems)..where((t) => t.id.equals(widget.mediaItem.id));
               setState(() {
                 widget.mediaItem.thumbs.add(encoded);
               });
-              final result = await query.write(MediaItemsCompanion(thumbs: drift.Value(widget.mediaItem.thumbs)));
-              print('$result 件のデータを更新しました。');
+              await query.write(MediaItemsCompanion(thumbs: drift.Value(widget.mediaItem.thumbs)));
+              scaffoldMessengerKey.currentState?.showSnackBar(
+                const SnackBar(content: Text('サムネイルを更新しました'))
+              );
             },
           ),
         ],
