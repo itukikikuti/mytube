@@ -54,6 +54,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  final _searchController = TextEditingController();
   final Map<int, bool> _rateFilter = {
     5: true,
     4: true,
@@ -100,6 +101,12 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _loadTags();
     _scanAndLoadMedia();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _loadTags() async {
@@ -208,7 +215,12 @@ class _HomePageState extends State<HomePage> {
           }).reduce((a, b) => a | b);
         }
 
-        return rateFilter & typeFilter & tagFilter;
+        drift.Expression<bool> searchFilter = const drift.Constant(true);
+        if (_searchController.text.isNotEmpty) {
+          searchFilter = item.title.like('%${_searchController.text}%');
+        }
+
+        return searchFilter & rateFilter & typeFilter & tagFilter;
       }
 
       late final List<MediaItem> allItems;
@@ -340,6 +352,23 @@ class _HomePageState extends State<HomePage> {
 
             const Divider(),
 
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  labelText: 'タイトルで検索',
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () => _searchController.clear(),
+                  )
+                ),
+              ),
+            ),
+
+            const Divider(),
+
             ..._rateFilter.keys.map((rate) {
               return CheckboxListTile(
                 title: Text('❤️' * rate + '🤍' * (5 - rate)),
@@ -385,10 +414,7 @@ class _HomePageState extends State<HomePage> {
             const Divider(),
 
             Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 8.0,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: DropdownButtonFormField<String>(
                 decoration: const InputDecoration(
                   labelText: 'カテゴリ選択',
