@@ -67,12 +67,12 @@ class _HomePageState extends State<HomePage> {
     'image': false,
     'anime': false,
   };
+  final Set<String> _selectedTags = {};
 
   final List<String> _categories = ['追加順', 'シャッフル', '最近再生した', '再生数', '長さ'];
   String? _selectedCategory = '追加順';
 
-  final List<String> _allTags = [];
-  final Set<String> _selectedTags = {};
+  List<TagItem> _tagItems = [];
   List<MediaItem> _mediaFiles = [];
   bool _isLoading = true;
   String _statusMessage = '';
@@ -106,12 +106,10 @@ class _HomePageState extends State<HomePage> {
     final query = db.select(db.tagItems)..orderBy([
       (t) => drift.OrderingTerm(expression: t.name, mode: drift.OrderingMode.asc)
     ]);
-    final allTags = await query.get();
+    final tagItems = await query.get();
 
     setState(() {
-      for (final tag in allTags) {
-        _allTags.add(tag.name);
-      }
+      _tagItems = tagItems;
     });
   }
 
@@ -185,6 +183,9 @@ class _HomePageState extends State<HomePage> {
           .where((entry) => entry.value)
           .map((entry) => entry.key)
           .toList();
+        final enabledTags = _selectedTags
+          .map((tag) => _tagItems.firstWhere((item) => item.name == tag).id)
+          .toList();
 
         drift.Expression<bool> rateFilter = const drift.Constant(false);
         if (enabledRates.isNotEmpty) {
@@ -196,7 +197,18 @@ class _HomePageState extends State<HomePage> {
           typeFilter = item.type.isIn(enabledTypes);
         }
 
-        return rateFilter & typeFilter;
+        drift.Expression<bool> tagFilter = const drift.Constant(true);
+        if (enabledTags.isNotEmpty) {
+          tagFilter = enabledTags.map((tag) {
+            final id = tag.toString();
+            return item.tags.like('%[$id,%') |
+              item.tags.like('%,$id,%') |
+              item.tags.like('%,$id]') |
+              item.tags.like('%[$id]');
+          }).reduce((a, b) => a | b);
+        }
+
+        return rateFilter & typeFilter & tagFilter;
       }
 
       late final List<MediaItem> allItems;
@@ -411,16 +423,16 @@ class _HomePageState extends State<HomePage> {
               child: Wrap(
                 spacing: 8.0,
                 runSpacing: 4.0,
-                children: _allTags.map((String tag) {
+                children: _tagItems.map((tag) {
                   return FilterChip(
-                    label: Text(tag),
-                    selected: _selectedTags.contains(tag),
-                    onSelected: (bool selected) {
+                    label: Text(tag.name),
+                    selected: _selectedTags.contains(tag.name),
+                    onSelected: (selected) {
                       setState(() {
                         if (selected) {
-                          _selectedTags.add(tag);
+                          _selectedTags.add(tag.name);
                         } else {
-                          _selectedTags.remove(tag);
+                          _selectedTags.remove(tag.name);
                         }
                       });
                     },
