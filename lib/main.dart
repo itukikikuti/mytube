@@ -10,6 +10,7 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/gestures.dart';
 import 'package:image/image.dart' as img;
+import 'package:path/path.dart' as path;
 
 import 'database.dart';
 
@@ -34,12 +35,12 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      scrollBehavior: MaterialScrollBehavior().copyWith(
-        dragDevices: {
-          PointerDeviceKind.touch,
-          PointerDeviceKind.mouse,
-        }
-      ),
+      // scrollBehavior: MaterialScrollBehavior().copyWith(
+      //   dragDevices: {
+      //     PointerDeviceKind.touch,
+      //     PointerDeviceKind.mouse,
+      //   }
+      // ),
       scaffoldMessengerKey: scaffoldMessengerKey,
       home: const HomePage(),
     );
@@ -70,43 +71,128 @@ class _HomePageState extends State<HomePage> {
   };
   final Set<String> _selectedTags = {};
 
-  final List<String> _categories = ['追加順', 'シャッフル', '最近再生した', '再生数', '長さ'];
+  final List<String> _categories = [
+    '追加順',
+    'シャッフル',
+    '最近再生した',
+    '再生数',
+    '長さ'
+  ];
   String? _selectedCategory = '追加順';
 
   List<TagItem> _tagItems = [];
   List<MediaItem> _mediaFiles = [];
-  bool _isLoading = true;
-  String _statusMessage = '';
-  String? _error;
 
-  // final _supportedImageExtensions = [
-  //   '.jpg',
-  //   '.jpeg',
-  //   '.png',
-  //   '.gif',
-  //   '.bmp',
-  //   '.webp'
-  // ];
-  // final _supportedVideoExtensions = [
-  //   '.mp4',
-  //   '.mkv',
-  //   '.avi',
-  //   '.mov',
-  //   '.wmv',
-  //   '.webm'
-  // ];
+  final _supportedImageExtensions = [
+    '.jpg',
+    '.jpeg',
+    '.jfif',
+    '.png',
+    '.bmp',
+    '.webp',
+  ];
+  final _supportedGifExtensions = [
+    '.gif',
+  ];
+  final _supportedVideoExtensions = [
+    '.mp4',
+    '.mkv',
+    '.avi',
+    '.mov',
+    '.wmv',
+    '.webm',
+  ];
+
+  final _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _loadTags();
-    _scanAndLoadMedia();
+    _loadMedia();
+    _scanMedia();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _scanMedia() async {
+    try {
+      const mediaPath = 'N:\\Videos';
+      final directory = Directory(mediaPath);
+      if (!await directory.exists()) {
+        throw Exception('Directory not found: $mediaPath');
+      }
+
+      final existingTitles = (await db.select(db.mediaItems).get()).map((item) => item.title).toSet();
+
+      final filesStream = directory.list();
+      int addedCount = 0;
+
+      await for (final file in filesStream) {
+        if (file is! File) continue;
+
+        final title = path.basename(file.path);
+        if (existingTitles.contains(title)) continue;
+
+        final extension = path.extension(file.path).toLowerCase();
+        final stat = await file.stat();
+        String? type;
+
+        if (_supportedImageExtensions.contains(extension)) {
+          type = 'image';
+        } else if (_supportedGifExtensions.contains(extension)) {
+          type = 'anime';
+        } else if (_supportedVideoExtensions.contains(extension)) {
+          type = 'video';
+        }
+
+        if (type != null) {
+          int duration = 0;
+          if (type == 'video') {
+            final player = Player();
+            try {
+              await player.open(Media(file.path), play: false);
+              final videoDuration = await player.stream.duration.firstWhere((d) => d != Duration.zero);
+              duration = videoDuration.inSeconds;
+            } catch (e) {
+              scaffoldMessengerKey.currentState?.showSnackBar(
+                SnackBar(content: Text('Failed to get duration for ${file.path}: $e'))
+              );
+            } finally {
+              await player.dispose();
+            }
+          }
+
+          final newItem = MediaItemsCompanion(
+            title: drift.Value(title),
+            date: drift.Value(stat.changed),
+            type: drift.Value(type),
+            duration: drift.Value(duration),
+            rate: drift.Value(0),
+            tags: drift.Value([]),
+            thumbs: drift.Value([]),
+          );
+
+          await db.into(db.mediaItems).insert(newItem, mode: drift.InsertMode.insertOrIgnore);
+          addedCount++;
+        }
+      }
+
+      if (addedCount > 0) {
+        scaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(content: Text('$addedCount件の新しいメディアを追加しました。'))
+        );
+      }
+    } catch (e) {
+      scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(content: Text('Error: $e'))
+      );
+    }
   }
 
   void _loadTags() async {
@@ -120,209 +206,110 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  Future<void> _scanAndLoadMedia() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-      _statusMessage = 'Starting scan...';
-    });
+  Future<void> _loadMedia() async {
+    drift.Expression<bool> filter(MediaItems item) {
+      final enabledRates = _rateFilter.entries
+        .where((entry) => entry.value)
+        .map((entry) => entry.key)
+        .toList();
+      final enabledTypes = _typeFilter.entries
+        .where((entry) => entry.value)
+        .map((entry) => entry.key)
+        .toList();
+      final enabledTags = _selectedTags
+        .map((tag) => _tagItems.firstWhere((item) => item.name == tag).id)
+        .toList();
 
-    try {
-      // // 1. Scan directory for files using an async stream
-      // const mediaPath = 'N:\\Videos';
-      // final directory = Directory(mediaPath);
-      // if (!await directory.exists()) {
-      //   throw Exception('Directory not found: $mediaPath');
-      // }
-
-      // final filesStream = directory.list();
-      // final List<VideoItemsCompanion> newItems = [];
-      // int scannedFileCount = 0;
-
-      // await for (final file in filesStream) {
-      //   scannedFileCount++;
-      //   final extension = path.extension(file.path).toLowerCase();
-      //   if (_supportedImageExtensions.contains(extension) ||
-      //       _supportedVideoExtensions.contains(extension)) {
-      //     try {
-      //       final stat = await file.stat();
-      //       newItems.add(
-      //         VideoItemsCompanion(
-      //           path: drift.Value(file.path),
-      //           date: drift.Value(stat.changed), // `changed` is creation time on Windows
-      //         ),
-      //       );
-      //       // Update UI to show which file is being scanned
-      //       setState(() {
-      //         _statusMessage = 'Scanning ($scannedFileCount): ${path.basename(file.path)}';
-      //       });
-      //     } catch (e) {
-      //       // Ignore files that can't be stated
-      //     }
-      //   }
-      // }
-
-      // setState(() {
-      //   _statusMessage = 'Updating database with ${newItems.length} new items...';
-      // });
-
-      // // 2. Batch insert new items into the database
-      // if (newItems.isNotEmpty) {
-      //   await appDatabase.batch((batch) {
-      //     batch.insertAll(
-      //       appDatabase.videoItems,
-      //       newItems,
-      //       mode: drift.InsertMode.insertOrIgnore,
-      //     );
-      //   });
-      // }
-
-      // setState(() {
-      //   _statusMessage = 'Loading media from database...';
-      // });
-
-      drift.Expression<bool> filter(MediaItems item) {
-        final enabledRates = _rateFilter.entries
-          .where((entry) => entry.value)
-          .map((entry) => entry.key)
-          .toList();
-        final enabledTypes = _typeFilter.entries
-          .where((entry) => entry.value)
-          .map((entry) => entry.key)
-          .toList();
-        final enabledTags = _selectedTags
-          .map((tag) => _tagItems.firstWhere((item) => item.name == tag).id)
-          .toList();
-
-        drift.Expression<bool> rateFilter = const drift.Constant(false);
-        if (enabledRates.isNotEmpty) {
-          rateFilter = item.rate.isIn(enabledRates);
-        }
-
-        drift.Expression<bool> typeFilter = const drift.Constant(false);
-        if (enabledTypes.isNotEmpty) {
-          typeFilter = item.type.isIn(enabledTypes);
-        }
-
-        drift.Expression<bool> tagFilter = const drift.Constant(true);
-        if (enabledTags.isNotEmpty) {
-          tagFilter = enabledTags.map((tag) {
-            final id = tag.toString();
-            return item.tags.like('%[$id,%') |
-              item.tags.like('%,$id,%') |
-              item.tags.like('%,$id]') |
-              item.tags.like('%[$id]');
-          }).reduce((a, b) => a | b);
-        }
-
-        drift.Expression<bool> searchFilter = const drift.Constant(true);
-        if (_searchController.text.isNotEmpty) {
-          searchFilter = item.title.like('%${_searchController.text}%');
-        }
-
-        return searchFilter & rateFilter & typeFilter & tagFilter;
+      drift.Expression<bool> rateFilter = const drift.Constant(false);
+      if (enabledRates.isNotEmpty) {
+        rateFilter = item.rate.isIn(enabledRates);
       }
 
-      late final List<MediaItem> allItems;
-
-      switch (_selectedCategory) {
-        case 'シャッフル':
-          final query = db.select(db.mediaItems)..where(filter)..orderBy([(t) => drift.OrderingTerm.random()]);
-          allItems = await query.get();
-          break;
-        case '最近再生した':
-          final latestHistoryDate = db.historyItems.date.max();
-          // 1. ソートされたIDのリストを取得するクエリ
-          final sortedIdQuery = db.selectOnly(db.mediaItems)
-            ..addColumns([db.mediaItems.id])
-            ..join([
-              drift.leftOuterJoin(db.historyItems, db.historyItems.media.equalsExp(db.mediaItems.id))
-            ])
-            ..where(filter(db.mediaItems))
-            ..groupBy([db.mediaItems.id]) // IDでグループ化
-            ..orderBy([
-              drift.OrderingTerm(expression: latestHistoryDate, mode: drift.OrderingMode.desc, nulls: drift.NullsOrder.last),
-              drift.OrderingTerm(expression: db.mediaItems.date, mode: drift.OrderingMode.desc),
-            ]);
-
-          // 2. IDリストを取得し、その順序でMediaItemを取得
-          final sortedIds = (await sortedIdQuery.map((row) => row.read(db.mediaItems.id)).get()).whereType<int>().toList();
-          final sortedItems = await (db.select(db.mediaItems)..where((t) => t.id.isIn(sortedIds))).get();
-          // データベースから取得した順序ではなく、IDリストの順序に並べ替える
-          allItems = sortedIds.map((id) => sortedItems.firstWhere((item) => item.id == id)).toList();
-          break;
-        case '再生数':
-          final playCount = db.historyItems.id.count();
-          // 1.　ソートされたIDのリストを取得するクエリ
-          final sortedIdQuery = db.selectOnly(db.mediaItems)
-            ..addColumns([db.mediaItems.id])
-            ..join([
-              drift.leftOuterJoin(db.historyItems, db.historyItems.media.equalsExp(db.mediaItems.id))
-            ])
-            ..where(filter(db.mediaItems))
-            ..groupBy([db.mediaItems.id]) // IDでグループ化
-            ..orderBy([
-              drift.OrderingTerm(expression: playCount, mode: drift.OrderingMode.desc),
-              drift.OrderingTerm(expression: db.mediaItems.date, mode: drift.OrderingMode.desc),
-            ]);
-
-          // 2. IDリストを取得し、その順序でMediaItemを取得
-          final sortedIds = (await sortedIdQuery.map((row) => row.read(db.mediaItems.id)).get()).whereType<int>().toList();
-          final sortedItems = await (db.select(db.mediaItems)..where((t) => t.id.isIn(sortedIds))).get();
-          // データベースから取得した順序ではなく、IDリストの順序に並べ替える
-          allItems = sortedIds.map((id) => sortedItems.firstWhere((item) => item.id == id)).toList();
-          break;
-        case '長さ':
-          final query = db.select(db.mediaItems)..where(filter)..orderBy([(t) => drift.OrderingTerm(expression: t.duration, mode: drift.OrderingMode.desc)]);
-          allItems = await query.get();
-          break;
-        case '追加順':
-        default:
-          final query = db.select(db.mediaItems)..where(filter)..orderBy([(t) => drift.OrderingTerm(expression: t.date, mode: drift.OrderingMode.desc)]);
-          allItems = await query.get();
-          break;
+      drift.Expression<bool> typeFilter = const drift.Constant(false);
+      if (enabledTypes.isNotEmpty) {
+        typeFilter = item.type.isIn(enabledTypes);
       }
-      
-      setState(() {
-        _mediaFiles = allItems;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _error = 'Error: $e';
-        _isLoading = false;
-      });
+
+      drift.Expression<bool> tagFilter = const drift.Constant(true);
+      if (enabledTags.isNotEmpty) {
+        tagFilter = enabledTags.map((tag) {
+          final id = tag.toString();
+          return item.tags.like('%[$id,%') |
+            item.tags.like('%,$id,%') |
+            item.tags.like('%,$id]') |
+            item.tags.like('%[$id]');
+        }).reduce((a, b) => a | b);
+      }
+
+      drift.Expression<bool> searchFilter = const drift.Constant(true);
+      if (_searchController.text.isNotEmpty) {
+        searchFilter = item.title.like('%${_searchController.text}%');
+      }
+
+      return searchFilter & rateFilter & typeFilter & tagFilter;
     }
+
+    late final List<MediaItem> allItems;
+
+    switch (_selectedCategory) {
+      case 'シャッフル':
+        final query = db.select(db.mediaItems)..where(filter)..orderBy([(t) => drift.OrderingTerm.random()]);
+        allItems = await query.get();
+        break;
+      case '最近再生した':
+        final latestHistoryDate = db.historyItems.date.max();
+        final sortedIdQuery = db.selectOnly(db.mediaItems)
+          ..addColumns([db.mediaItems.id])
+          ..join([
+            drift.leftOuterJoin(db.historyItems, db.historyItems.media.equalsExp(db.mediaItems.id))
+          ])
+          ..where(filter(db.mediaItems))
+          ..groupBy([db.mediaItems.id])
+          ..orderBy([
+            drift.OrderingTerm(expression: latestHistoryDate, mode: drift.OrderingMode.desc, nulls: drift.NullsOrder.last),
+            drift.OrderingTerm(expression: db.mediaItems.date, mode: drift.OrderingMode.desc),
+          ]);
+
+        final sortedIds = (await sortedIdQuery.map((row) => row.read(db.mediaItems.id)).get()).whereType<int>().toList();
+        final sortedItems = await (db.select(db.mediaItems)..where((t) => t.id.isIn(sortedIds))).get();
+        allItems = sortedIds.map((id) => sortedItems.firstWhere((item) => item.id == id)).toList();
+        break;
+      case '再生数':
+        final playCount = db.historyItems.id.count();
+        final sortedIdQuery = db.selectOnly(db.mediaItems)
+          ..addColumns([db.mediaItems.id])
+          ..join([
+            drift.leftOuterJoin(db.historyItems, db.historyItems.media.equalsExp(db.mediaItems.id))
+          ])
+          ..where(filter(db.mediaItems))
+          ..groupBy([db.mediaItems.id])
+          ..orderBy([
+            drift.OrderingTerm(expression: playCount, mode: drift.OrderingMode.desc),
+            drift.OrderingTerm(expression: db.mediaItems.date, mode: drift.OrderingMode.desc),
+          ]);
+
+        final sortedIds = (await sortedIdQuery.map((row) => row.read(db.mediaItems.id)).get()).whereType<int>().toList();
+        final sortedItems = await (db.select(db.mediaItems)..where((t) => t.id.isIn(sortedIds))).get();
+        allItems = sortedIds.map((id) => sortedItems.firstWhere((item) => item.id == id)).toList();
+        break;
+      case '長さ':
+        final query = db.select(db.mediaItems)..where(filter)..orderBy([(t) => drift.OrderingTerm(expression: t.duration, mode: drift.OrderingMode.desc)]);
+        allItems = await query.get();
+        break;
+      case '追加順':
+      default:
+        final query = db.select(db.mediaItems)..where(filter)..orderBy([(t) => drift.OrderingTerm(expression: t.date, mode: drift.OrderingMode.desc)]);
+        allItems = await query.get();
+        break;
+    }
+    
+    setState(() {
+      _mediaFiles = allItems;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const CircularProgressIndicator(),
-            const SizedBox(height: 16),
-            Text(_statusMessage, style: Theme.of(context).textTheme.titleMedium),
-          ],
-        ),
-      );
-    }
-
-    if (_error != null) {
-      return Center(
-        child: Text(
-          _error!,
-          style: const TextStyle(color: Colors.red),
-        ),
-      );
-    }
-
-    if (_mediaFiles.isEmpty) {
-      return const Center(child: Text('No media files found in the database.'));
-    }
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('MyTube'),
@@ -340,7 +327,7 @@ class _HomePageState extends State<HomePage> {
                 onPressed: () async {
                   Navigator.pop(context);
 
-                  await _scanAndLoadMedia();
+                  await _loadMedia();
 
                   scaffoldMessengerKey.currentState?.showSnackBar(
                     const SnackBar(content: Text('フィルターを適用しました'))
@@ -469,18 +456,36 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
-      body: GridView.builder(
-        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 300,
-          childAspectRatio: 1.1,
-          crossAxisSpacing: 4,
-          mainAxisSpacing: 4,
-        ),
-        itemCount: _mediaFiles.length,
-        itemBuilder: (context, index) {
-          final mediaItem = _mediaFiles[index];
-          return MediaCard(mediaItem: mediaItem);
+      body: Listener(
+        onPointerSignal: (signal) {
+          if (signal is PointerScrollEvent) {
+            final delta = signal.scrollDelta.dy;
+            final position = _scrollController.position;
+            if (position is ScrollPositionWithSingleContext) {
+              double newVelocity = delta * 10;
+              final activity = position.activity;
+              if (activity is BallisticScrollActivity) {
+                newVelocity += activity.velocity;
+              }
+              position.goBallistic(newVelocity);
+            }
+          }
         },
+        child: GridView.builder(
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 300,
+            childAspectRatio: 1.1,
+            crossAxisSpacing: 4,
+            mainAxisSpacing: 4,
+          ),
+          controller: _scrollController,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _mediaFiles.length,
+          itemBuilder: (context, index) {
+            final mediaItem = _mediaFiles[index];
+            return MediaCard(mediaItem: mediaItem);
+          },
+        ),
       ),
     );
   }
@@ -660,17 +665,6 @@ class _MediaCardState extends State<MediaCard> {
           ],
         ),
       ),
-      // child: GridTile(
-      //   footer: GridTileBar(
-      //     backgroundColor: Colors.black45,
-      //     title: Text(
-      //       widget.mediaItem.title,
-      //       maxLines: 2,
-      //       overflow: TextOverflow.ellipsis,
-      //     ),
-      //   ),
-      //   child: thumb,
-      // ),
     );
   }
 }
@@ -694,7 +688,7 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
     if (widget.mediaItem.type == 'video') {
       _player = Player();
       _controller = VideoController(_player);
-      final uri = Uri.file('N:\\Videos\\${widget.mediaItem.title}', windows: Platform.isWindows);
+      final uri = Uri.file(path.join('N:\\Videos', widget.mediaItem.title), windows: Platform.isWindows);
       _player.setPlaylistMode(PlaylistMode.single);
       _player.open(Media(uri.toString()));
     }
@@ -717,7 +711,7 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
           IconButton(
             icon: Icon(Icons.play_circle_outline_rounded),
             onPressed: () async {
-              await Process.start('cmd', ['/c', 'start', '""', 'N:\\Videos\\${widget.mediaItem.title}']);
+              await Process.start('cmd', ['/c', 'start', '""', path.join('N:\\Videos', widget.mediaItem.title)]);
               final newHistory = HistoryItemsCompanion(
                 media: drift.Value(widget.mediaItem.id),
                 date: drift.Value(DateTime.now())
@@ -772,7 +766,7 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
         child: widget.mediaItem.type == 'video'
             ? Video(controller: _controller)
             : InteractiveViewer(
-                child: Image.file(File('N:\\Videos\\${widget.mediaItem.title}')),
+                child: Image.file(File(path.join('N:\\Videos', widget.mediaItem.title))),
               ),
       ),
     );
