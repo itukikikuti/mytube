@@ -1,9 +1,9 @@
 'use client';
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 
 export default function ExternalVideosPage() {
   const [list, setList] = useState<{ name: string; url: string }[]>([]);
-  const [current, setCurrent] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/list-videos')
@@ -18,20 +18,12 @@ export default function ExternalVideosPage() {
       <ul>
         {list.map(item => (
           <li key={item.name}>
-            <button onClick={() => setCurrent(item.url)}>{item.name}</button>
+            <Link href={`/player?url=${encodeURIComponent(item.url)}&name=${encodeURIComponent(item.name)}`}>
+              {item.name}
+            </Link>
           </li>
         ))}
       </ul>
-
-      {current && (
-        <div style={{ marginTop: 20 }}>
-          <h2>再生: {current.split('=').pop()}</h2>
-          <video key={current} width={640} height={360} controls autoPlay>
-            <source src={current} type="video/mp4" />
-            お使いのブラウザは video をサポートしていません。
-          </video>
-        </div>
-      )}
     </div>
   );
 }
