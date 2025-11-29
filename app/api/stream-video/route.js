@@ -1,22 +1,25 @@
 import fs from 'fs';
 import path from 'path';
+import { NextResponse } from 'next/server';
 
 const EXTERNAL_VIDEO_DIR = 'N:\\Videos';
 
-export default function handler(req, res) {
-  const { filename } = req.query;
-  if (!filename) return res.status(400).send('filename is required');
+export async function GET(request) {
+  const filename = request.nextUrl.searchParams.get('filename');
+  if (!filename) {
+    return NextResponse.json({ message: 'filename is required' }, { status: 400 });
+  }
 
-  const safeName = path.basename(Array.isArray(filename) ? filename[0] : filename);
+  const safeName = path.basename(filename);
   const filePath = path.join(EXTERNAL_VIDEO_DIR, safeName);
 
   if (!fs.existsSync(filePath) || !filePath.toLowerCase().endsWith('.mp4')) {
-    return res.status(404).send('File not found or unsupported');
+    return NextResponse.json({ message: 'File not found or unsupported' }, { status: 404 });
   }
 
   const stat = fs.statSync(filePath);
   const fileSize = stat.size;
-  const range = req.headers.range;
+  const range = request.headers.get('range');
 
   if (range) {
     const parts = range.replace(/bytes=/, '').split('-');
@@ -25,18 +28,20 @@ export default function handler(req, res) {
     const chunkSize = (end - start) + 1;
     const stream = fs.createReadStream(filePath, { start, end });
 
-    res.writeHead(206, {
+    const headers = {
       'Content-Range': `bytes ${start}-${end}/${fileSize}`,
       'Accept-Ranges': 'bytes',
       'Content-Length': chunkSize,
-      'Content-Type': 'video/mp4'
-    });
-    stream.pipe(res);
+      'Content-Type': 'video/mp4',
+    };
+
+    return new Response(stream, { status: 206, headers });
   } else {
-    res.writeHead(200, {
+    const stream = fs.createReadStream(filePath);
+    const headers = {
       'Content-Length': fileSize,
-      'Content-Type': 'video/mp4'
-    });
-    fs.createReadStream(filePath).pipe(res);
+      'Content-Type': 'video/mp4',
+    };
+    return new Response(stream, { status: 200, headers });
   }
 }

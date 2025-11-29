@@ -1,29 +1,28 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 function PlayerContent() {
   const searchParams = useSearchParams();
-  const videoUrl = searchParams.get('url');
-  const videoName = searchParams.get('name');
+  const videoName = searchParams.get('filename');
 
-  if (!videoUrl) {
+  if (!videoName) {
     return (
       <div>
-        <p>ビデオのURLが指定されていません。</p>
-        <Link href="/external-videos">一覧に戻る</Link>
+        <p>ビデオが指定されていません。</p>
+        <Link href="/list">一覧に戻る</Link>
       </div>
     );
   }
 
   return (
     <div style={{ padding: 24 }}>
-      <Link href="/external-videos">← 一覧に戻る</Link>
+      <Link href="/list">← 一覧に戻る</Link>
       <h1 style={{ marginTop: 20 }}>再生中: {videoName || 'ビデオ'}</h1>
-      <video key={videoUrl} width="100%" style={{ maxWidth: 960 }} controls autoPlay>
-        <source src={videoUrl} type="video/mp4" />
+      <video key={videoName} width="100%" style={{ maxWidth: 960 }} controls autoPlay>
+        <source src={`/api/stream-video?filename=${videoName}`} type="video/mp4" />
         お使いのブラウザは video をサポートしていません。
       </video>
     </div>
