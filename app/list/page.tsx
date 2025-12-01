@@ -1,14 +1,20 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
 
-const Card = ({ title, thumbs }) => {
+interface CardProps {
+  title: string;
+  thumbs: string[];
+  rate: number;
+  date: number;
+}
+
+const Card = ({ title, thumbs, rate, date }: CardProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const hasImages = thumbs && thumbs.length > 0;
   const totalImages = hasImages ? thumbs.length : 0;
-  
+
   useEffect(() => {
     if (totalImages <= 1) return;
 
@@ -20,6 +26,21 @@ const Card = ({ title, thumbs }) => {
 
     return () => clearInterval(intervalId);
   }, [totalImages]);
+
+  const formatDate = (timestamp: number) => {
+    if (!timestamp) return '';
+    return new Date(timestamp).toLocaleDateString();
+  };
+
+  const renderStars = (rating: number) => {
+    return (
+      <div className="flex text-yellow-500 text-xs">
+        {[...Array(5)].map((_, i) => (
+          <span key={i}>{i < rating ? '★' : '☆'}</span>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-lg overflow-hidden transition duration-300 hover:shadow-xl hover:scale-[1.02]">
@@ -45,10 +66,14 @@ const Card = ({ title, thumbs }) => {
           </div>
         )}
       </div>
-      <div className="p-4">
-        <h3 className="text-sm text-gray-800 truncate">
+      <div className="p-3 flex flex-col gap-1 text-left">
+        <h3 className="text-sm font-semibold truncate" title={title}>
           {title}
         </h3>
+        <div className="flex items-center justify-between">
+          <span className="text-xs opacity-50">0回・{formatDate(date)}</span>
+          {renderStars(rate)}
+        </div>
       </div>
     </div>
   );
@@ -113,14 +138,14 @@ function PlayerPage({ title }) {
 }
 
 export default function ListPage() {
-  const [list, setList] = useState<{ id: number, title: string, date: number, type: string, duration: number, rate: number, tags: string, thumbs: string }[]>([]);
+  const [list, setList] = useState<{ id: number, title: string, date: number, type: string, duration: number, rate: number, tags: string, thumbs: string, play_count: number }[]>([]);
   const [selectedMediaTitle, setSelectedMediaTitle] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     fetch('/api/data')
       .then(r => r.json())
-      .then(data => setList(data))
+      .then(data => setList(data.sort((a, b) => b.date - a.date)))
       .catch(console.error);
   }, []);
 
@@ -133,12 +158,14 @@ export default function ListPage() {
   return (
     <>
       <div className="container mx-auto p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
           {list.map((item) => (
             <button key={item.id} onClick={() => openModal(item.title)}>
               <Card
                 title={item.title}
                 thumbs={JSON.parse(item.thumbs)}
+                rate={item.rate}
+                date={item.date}
               />
             </button>
           ))}
