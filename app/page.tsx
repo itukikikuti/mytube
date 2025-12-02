@@ -29,7 +29,7 @@ const Card = ({ title, thumbs, rate, date }: CardProps) => {
 
   const formatDate = (timestamp: number) => {
     if (!timestamp) return '';
-    return new Date(timestamp).toLocaleDateString();
+    return new Date(timestamp * 1000).toLocaleDateString();
   };
 
   const renderStars = (rating: number) => {
@@ -104,7 +104,7 @@ const Modal = ({ item, onClose }: ModalProps) => {
             <div>
               <h2 className="text-xl font-bold">{item?.title}</h2>
               <div className="text-sm text-gray-500 mt-1">
-                {item ? `${item.play_count || 0} 回視聴・${new Date(item.date).toLocaleDateString()}` : ''}
+                {item ? `${item.play_count || 0} 回視聴・${new Date(item.date * 1000).toLocaleDateString()}` : ''}
               </div>
             </div>
             <a className="text-sm text-blue-600" href={item ? `mytube:N:\\Videos\\${item.title}` : '#'}>開く（ローカル）</a>
