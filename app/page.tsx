@@ -7,9 +7,11 @@ interface CardProps {
   thumbs: string[];
   rate: number;
   date: number;
+  play_count?: number;
+  last_played?: number | null;
 }
 
-const Card = ({ title, thumbs, rate, date }: CardProps) => {
+const Card = ({ title, thumbs, rate, date, play_count, last_played }: CardProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const hasImages = thumbs && thumbs.length > 0;
@@ -71,7 +73,7 @@ const Card = ({ title, thumbs, rate, date }: CardProps) => {
           {title}
         </h3>
         <div className="flex items-center justify-between text-xs">
-          <span className="opacity-50">0回・{formatDate(date)}</span>
+          <span className="opacity-50">{(play_count || 0)}回・{formatDate(last_played ?? date)}</span>
           {renderStars(rate)}
         </div>
       </div>
@@ -80,7 +82,7 @@ const Card = ({ title, thumbs, rate, date }: CardProps) => {
 };
 
 interface ModalProps {
-  item: { id: number, title: string, date: number, type: string, duration: number, rate: number, tags: string, thumbs: string, play_count: number } | null;
+  item: { id: number, title: string, date: number, type: string, duration: number, rate: number, tags: string, thumbs: string, play_count?: number, last_played?: number | null } | null;
   onClose: () => void;
 }
 
@@ -192,8 +194,8 @@ function Drawer() {
 }
 
 export default function ListPage() {
-  const [list, setList] = useState<{ id: number, title: string, date: number, type: string, duration: number, rate: number, tags: string, thumbs: string, play_count: number }[]>([]);
-  const [selectedMedia, setSelectedMedia] = useState<{ id: number, title: string, date: number, type: string, duration: number, rate: number, tags: string, thumbs: string, play_count: number } | null>(null);
+  const [list, setList] = useState<{ id: number, title: string, date: number, type: string, duration: number, rate: number, tags: string, thumbs: string, play_count?: number, last_played?: number | null }[]>([]);
+  const [selectedMedia, setSelectedMedia] = useState<{ id: number, title: string, date: number, type: string, duration: number, rate: number, tags: string, thumbs: string, play_count?: number, last_played?: number | null } | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
@@ -226,6 +228,8 @@ export default function ListPage() {
                 thumbs={JSON.parse(item.thumbs)}
                 rate={item.rate}
                 date={item.date}
+                play_count={item.play_count}
+                last_played={item.last_played}
               />
             </button>
           ))}
