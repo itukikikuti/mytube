@@ -107,7 +107,25 @@ const Modal = ({ item, onClose }: ModalProps) => {
                 {item ? `${item.play_count || 0} 回視聴・${new Date(item.date * 1000).toLocaleDateString()}` : ''}
               </div>
             </div>
-            <a className="text-sm text-blue-600" href={item ? `mytube:N:\\Videos\\${item.title}` : '#'}>開く（ローカル）</a>
+            <a
+              className="text-sm text-blue-600"
+              href={item ? `mytube:N:\\Videos\\${item.title}` : '#'}
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!item) return;
+                const href = `mytube:N:\\Videos\\${item.title}`;
+                try {
+                  await fetch('/api/history', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ media: item.id, date: Math.floor(Date.now() / 1000) }),
+                  });
+                } catch (err) {
+                  console.error('履歴の記録に失敗しました', err);
+                }
+                window.location.href = href;
+              }}
+            >開く（ローカル）</a>
             <button onClick={onClose} className="text-4xl leading-none ml-4" aria-label="Close modal">&times;</button>
           </div>
         </div>
