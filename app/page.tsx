@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState } from 'react';
 
 interface CardProps {
   title: string;
@@ -34,9 +34,9 @@ const Card = ({ title, thumbs, rate, date }: CardProps) => {
 
   const renderStars = (rating: number) => {
     return (
-      <div className="flex text-yellow-500 text-xs">
+      <div className="flex">
         {[...Array(5)].map((_, i) => (
-          <span key={i}>{i < rating ? '★' : '☆'}</span>
+          <span key={i} className={i < rating ? "text-yellow-500" : "opacity-50"}>★</span>
         ))}
       </div>
     );
@@ -47,7 +47,7 @@ const Card = ({ title, thumbs, rate, date }: CardProps) => {
       <div className="bg-black relative w-full aspect-video">
         {hasImages ? (
           <div
-            className="flex h-full transition-transform duration-500 ease-in-out"
+            className="h-full flex transition-transform duration-500 ease-in-out"
             style={{ transform: `translateX(-${currentIndex * 100}%)` }}
           >
             {thumbs.map((base64, index) => (
@@ -55,23 +55,23 @@ const Card = ({ title, thumbs, rate, date }: CardProps) => {
                 <img
                   src={`data:image/jpeg;base64,${base64}`}
                   alt={title}
-                  className="w-full h-full object-contain rounded-t-lg"
+                  className="w-full h-full object-contain"
                 />
               </div>
             ))}
           </div>
         ) : (
-          <div className="w-full h-full bg-black flex items-center justify-center rounded-t-lg">
+          <div className="w-full h-full flex items-center justify-center">
             <span className="text-white opacity-50">No Image</span>
           </div>
         )}
       </div>
       <div className="p-3 flex flex-col gap-1 text-left">
-        <h3 className="text-sm font-semibold truncate" title={title}>
+        <h3 className="text-sm truncate" title={title}>
           {title}
         </h3>
-        <div className="flex items-center justify-between">
-          <span className="text-xs opacity-50">0回・{formatDate(date)}</span>
+        <div className="flex items-center justify-between text-xs">
+          <span className="opacity-50">0回・{formatDate(date)}</span>
           {renderStars(rate)}
         </div>
       </div>
@@ -80,11 +80,11 @@ const Card = ({ title, thumbs, rate, date }: CardProps) => {
 };
 
 interface ModalProps {
-  title: string | null;
+  item: { id: number, title: string, date: number, type: string, duration: number, rate: number, tags: string, thumbs: string, play_count: number } | null;
   onClose: () => void;
 }
 
-const Modal = ({ title, onClose }: ModalProps) => {
+const Modal = ({ item, onClose }: ModalProps) => {
   useEffect(() => {
     document.body.style.overflow = 'hidden';
 
@@ -95,33 +95,41 @@ const Modal = ({ title, onClose }: ModalProps) => {
 
   return (
     <div className="fixed inset-0 flex justify-center items-center z-50" onClick={onClose}>
-      <div className="bg-black w-screen h-screen overflow-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="p-6">
-          <div className="flex justify-between items-start mb-6 border-b pb-4">
-            <h2 className="text-3xl font-extrabold">モーダルタイトル</h2>
-            <button onClick={onClose} className="text-4xl leading-none" aria-label="Close modal">&times;</button>
+      <div className="bg-white w-screen h-screen overflow-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="w-full h-8/10 bg-black">
+          <PlayerContent item={item} />
+        </div>
+        <div className="p-5">
+          <div className="flex items-start justify-between">
+            <div>
+              <h2 className="text-xl font-bold">{item?.title}</h2>
+              <div className="text-sm text-gray-500 mt-1">
+                {item ? `${item.play_count || 0} 回視聴・${new Date(item.date).toLocaleDateString()}` : ''}
+              </div>
+            </div>
+            <a className="text-sm text-blue-600" href={item ? `mytube:N:\\Videos\\${item.title}` : '#'}>開く（ローカル）</a>
+            <button onClick={onClose} className="text-4xl leading-none ml-4" aria-label="Close modal">&times;</button>
           </div>
-          <PlayerPage title={title} />
-          <a href={`mytube:N:\\Videos\\${title}`}>開く</a>
         </div>
       </div>
     </div>
   );
 }
 
-function PlayerContent({ title }) {
+function PlayerContent({ item }: { item: { title: string } | null }) {
+  const title = item?.title ?? null;
+
   if (!title) {
     return (
-      <div>
+      <div className="w-full h-full flex items-center justify-center text-white">
         <p>ビデオが指定されていません。</p>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 24 }}>
-      <h1 style={{ marginTop: 20 }}>再生中: {title || 'ビデオ'}</h1>
-      <video key={title} width="100%" style={{ maxWidth: 960 }} controls autoPlay>
+    <div className="w-full h-full">
+      <video key={title} className="w-full h-full object-contain" controls autoPlay>
         <source src={`/api/stream-video?filename=${encodeURIComponent(title)}`} type="video/mp4" />
         お使いのブラウザは video をサポートしていません。
       </video>
@@ -129,38 +137,72 @@ function PlayerContent({ title }) {
   );
 }
 
-function PlayerPage({ title }) {
+function Drawer() {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const toggleDrawer = () => {
+    setIsOpen(!isOpen);
+  }
+  
   return (
-    <Suspense fallback={<div>読み込み中...</div>}>
-      <PlayerContent title={title} />
-    </Suspense>
+    <nav className="relative p-4 shadow-md">
+      <button className="z-30 focus:outline-none" onClick={toggleDrawer} aria-label="Toggle Menu">
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          {isOpen ? (
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+          ) : (
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+          )}
+        </svg>
+      </button>
+
+      <div
+        className={`fixed top-0 left-0 h-full w-128 bg-white shadow-xl transform transition-transform duration-300 ease-in-out z-20 ${
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="p-4 pt-16">
+          <a href="#" className="block py-2 hover:bg-gray-600">ホーム</a>
+          <a href="#" className="block py-2 hover:bg-gray-600">サービス</a>
+          <a href="#" className="block py-2 hover:bg-gray-600">お問い合わせ</a>
+        </div>
+      </div>
+
+      {isOpen && <div className="fixed inset-0 z-10" onClick={toggleDrawer}></div>}
+    </nav>
   );
 }
 
 export default function ListPage() {
   const [list, setList] = useState<{ id: number, title: string, date: number, type: string, duration: number, rate: number, tags: string, thumbs: string, play_count: number }[]>([]);
-  const [selectedMediaTitle, setSelectedMediaTitle] = useState<string | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<{ id: number, title: string, date: number, type: string, duration: number, rate: number, tags: string, thumbs: string, play_count: number } | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     fetch('/api/data')
       .then(r => r.json())
-      .then(data => setList(data.sort((a, b) => b.date - a.date)))
+      .then((data: any) => setList((data as any[]).sort((a: any, b: any) => b.date - a.date)))
       .catch(console.error);
   }, []);
 
-  const openModal = (title: string) => {
+  const openModal = (item: { id: number, title: string, date: number, type: string, duration: number, rate: number, tags: string, thumbs: string, play_count: number }) => {
     setIsModalOpen(true);
-    setSelectedMediaTitle(title);
+    setSelectedMedia(item);
   }
-  const closeModal = () => setIsModalOpen(false);
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedMedia(null);
+  };
 
   return (
     <>
-      <div className="container mx-auto p-4">
+      <header>
+        <Drawer />
+      </header>
+      <div className="container mx-auto p-5">
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
           {list.map((item) => (
-            <button key={item.id} onClick={() => openModal(item.title)}>
+            <button key={item.id} onClick={() => openModal(item)}>
               <Card
                 title={item.title}
                 thumbs={JSON.parse(item.thumbs)}
@@ -171,7 +213,7 @@ export default function ListPage() {
           ))}
         </div>
       </div>
-      {isModalOpen && <Modal title={selectedMediaTitle} onClose={closeModal} />}
+      {isModalOpen && <Modal item={selectedMedia} onClose={closeModal} />}
     </>
   );
 }
