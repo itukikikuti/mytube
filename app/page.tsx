@@ -11,6 +11,19 @@ interface CardProps {
   last_played?: number | null;
 }
 
+type MediaItem = {
+  id: number;
+  title: string;
+  date: number;
+  type: string;
+  duration: number;
+  rate: number;
+  tags: string;
+  thumbs: string;
+  play_count?: number;
+  last_played?: number | null;
+}
+
 const Card = ({ title, thumbs, rate, date, play_count, last_played }: CardProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -82,7 +95,7 @@ const Card = ({ title, thumbs, rate, date, play_count, last_played }: CardProps)
 };
 
 interface ModalProps {
-  item: { id: number, title: string, date: number, type: string, duration: number, rate: number, tags: string, thumbs: string, play_count?: number, last_played?: number | null } | null;
+  item: MediaItem | null;
   onClose: () => void;
 }
 
@@ -124,7 +137,7 @@ const Modal = ({ item, onClose }: ModalProps) => {
               controls
               autoPlay
             >
-              <source src={`/api/stream-video?filename=${encodeURIComponent(item?.title)}`} type="video/mp4" />
+              <source src={`/api/stream-video?filename=${item ? encodeURIComponent(item.title) : ''}`} type="video/mp4" />
               お使いのブラウザは video をサポートしていません。
             </video>
           </div>
@@ -201,8 +214,8 @@ function Drawer() {
 }
 
 export default function ListPage() {
-  const [list, setList] = useState<{ id: number, title: string, date: number, type: string, duration: number, rate: number, tags: string, thumbs: string, play_count?: number, last_played?: number | null }[]>([]);
-  const [selectedMedia, setSelectedMedia] = useState<{ id: number, title: string, date: number, type: string, duration: number, rate: number, tags: string, thumbs: string, play_count?: number, last_played?: number | null } | null>(null);
+  const [list, setList] = useState<MediaItem[]>([]);
+  const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
@@ -212,7 +225,7 @@ export default function ListPage() {
       .catch(console.error);
   }, []);
 
-  const openModal = (item: { id: number, title: string, date: number, type: string, duration: number, rate: number, tags: string, thumbs: string, play_count?: number }) => {
+  const openModal = (item: MediaItem) => {
     setIsModalOpen(true);
     setSelectedMedia(item);
   }
