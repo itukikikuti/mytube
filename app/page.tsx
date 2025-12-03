@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 
 interface CardProps {
   title: string;
@@ -177,7 +177,7 @@ const Modal = ({ item, onClose }: ModalProps) => {
   );
 }
 
-function Drawer() {
+function Drawer({ sortOrder, setSortOrder }: { sortOrder: string; setSortOrder: (s: string) => void }) {
   const [isOpen, setIsOpen] = useState(false);
 
   const toggleDrawer = () => {
@@ -185,8 +185,8 @@ function Drawer() {
   }
   
   return (
-    <nav className="relative p-4 shadow-md">
-      <button className="z-30 focus:outline-none" onClick={toggleDrawer} aria-label="Toggle Menu">
+    <nav className="fixed top-0 left-0 w-full z-40 bg-white p-4 shadow-md flex items-center">
+      <button className="relative z-50 focus:outline-none" onClick={toggleDrawer} aria-label="Toggle Menu">
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           {isOpen ? (
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -196,15 +196,29 @@ function Drawer() {
         </svg>
       </button>
 
+      <div className="ml-3 text-lg font-semibold select-none">MyTube</div>
+
       <div
         className={`fixed top-0 left-0 h-full w-128 bg-white shadow-xl transform transition-transform duration-300 ease-in-out z-20 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         <div className="p-4 pt-16">
-          <a href="#" className="block py-2 hover:bg-gray-600">ホーム</a>
-          <a href="#" className="block py-2 hover:bg-gray-600">サービス</a>
-          <a href="#" className="block py-2 hover:bg-gray-600">お問い合わせ</a>
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">並び順</label>
+            <select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value)}
+              className="w-full border rounded p-2 text-sm"
+              aria-label="並び順"
+            >
+              <option value="newest">新しい順</option>
+              <option value="oldest">古い順</option>
+              <option value="most_played">再生回数が多い順</option>
+              <option value="highest_rated">評価が高い順</option>
+              <option value="last_played">最終再生が新しい順</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -215,6 +229,7 @@ function Drawer() {
 
 export default function ListPage() {
   const [list, setList] = useState<MediaItem[]>([]);
+  const [sortOrder, setSortOrder] = useState('newest');
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -224,6 +239,24 @@ export default function ListPage() {
       .then((data: any) => setList((data as any[]).sort((a: any, b: any) => b.date - a.date)))
       .catch(console.error);
   }, []);
+
+  const sortedList = useMemo(() => {
+    const copy = [...list];
+    switch (sortOrder) {
+      case 'newest':
+        return copy.sort((a, b) => b.date - a.date);
+      case 'oldest':
+        return copy.sort((a, b) => a.date - b.date);
+      case 'most_played':
+        return copy.sort((a, b) => (b.play_count || 0) - (a.play_count || 0));
+      case 'highest_rated':
+        return copy.sort((a, b) => b.rate - a.rate);
+      case 'last_played':
+        return copy.sort((a, b) => (b.last_played || 0) - (a.last_played || 0));
+      default:
+        return copy.sort((a, b) => b.date - a.date);
+    }
+  }, [list, sortOrder]);
 
   const openModal = (item: MediaItem) => {
     setIsModalOpen(true);
@@ -236,12 +269,12 @@ export default function ListPage() {
 
   return (
     <>
-      <header>
-        <Drawer />
+      <header className="">
+        <Drawer sortOrder={sortOrder} setSortOrder={setSortOrder} />
       </header>
-      <div className="container mx-auto p-5">
+      <div className="container mx-auto p-5 pt-20">
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
-          {list.map((item) => (
+          {sortedList.map((item) => (
             <button key={item.id} onClick={() => openModal(item)}>
               <Card
                 title={item.title}
