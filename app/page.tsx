@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 interface CardProps {
   title: string;
@@ -73,7 +73,7 @@ const Card = ({ title, thumbs, rate, date, play_count, last_played }: CardProps)
           {title}
         </h3>
         <div className="flex items-center justify-between text-xs">
-          <span className="opacity-50">{(play_count || 0)}回・{formatDate(last_played ?? date)}</span>
+          <span className="opacity-50">{(play_count || 0)}回・{formatDate(date)}</span>
           {renderStars(rate)}
         </div>
       </div>
@@ -95,11 +95,39 @@ const Modal = ({ item, onClose }: ModalProps) => {
     };
   }, []);
 
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  const onWheel2 = (e: React.WheelEvent<HTMLDivElement>) => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    // ページ全体のスクロールを抑止
+    e.preventDefault();
+
+    const step = 3; // 3秒ずつ移動
+    if (e.deltaY < 0) {
+      video.currentTime = Math.min(isFinite(video.duration) ? video.duration : Infinity, video.currentTime + step);
+    } else if (e.deltaY > 0) {
+      video.currentTime = Math.max(0, video.currentTime - step);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 flex justify-center items-center z-50" onClick={onClose}>
+    <div className="fixed inset-0 flex justify-center items-center z-50" onClick={onClose} onWheel={onWheel2}>
       <div className="bg-white w-screen h-screen overflow-auto" onClick={(e) => e.stopPropagation()}>
         <div className="w-full h-8/10 bg-black">
-          <PlayerContent item={item} />
+          <div className="w-full h-full">
+            <video
+              key={item?.title}
+              ref={videoRef}
+              className="w-full h-full object-contain"
+              controls
+              autoPlay
+            >
+              <source src={`/api/stream-video?filename=${encodeURIComponent(item?.title)}`} type="video/mp4" />
+              お使いのブラウザは video をサポートしていません。
+            </video>
+          </div>
         </div>
         <div className="p-5">
           <div className="flex items-start justify-between">
@@ -132,27 +160,6 @@ const Modal = ({ item, onClose }: ModalProps) => {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function PlayerContent({ item }: { item: { title: string } | null }) {
-  const title = item?.title ?? null;
-
-  if (!title) {
-    return (
-      <div className="w-full h-full flex items-center justify-center text-white">
-        <p>ビデオが指定されていません。</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="w-full h-full">
-      <video key={title} className="w-full h-full object-contain" controls autoPlay>
-        <source src={`/api/stream-video?filename=${encodeURIComponent(title)}`} type="video/mp4" />
-        お使いのブラウザは video をサポートしていません。
-      </video>
     </div>
   );
 }
@@ -205,7 +212,7 @@ export default function ListPage() {
       .catch(console.error);
   }, []);
 
-  const openModal = (item: { id: number, title: string, date: number, type: string, duration: number, rate: number, tags: string, thumbs: string, play_count: number }) => {
+  const openModal = (item: { id: number, title: string, date: number, type: string, duration: number, rate: number, tags: string, thumbs: string, play_count?: number }) => {
     setIsModalOpen(true);
     setSelectedMedia(item);
   }
