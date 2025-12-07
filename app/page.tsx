@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useMemo } from 'react';
+import { VirtuosoGrid } from 'react-virtuoso';
 
 interface CardProps {
   title: string;
@@ -19,7 +20,7 @@ type MediaItem = {
   duration: number;
   rate: number;
   tags: string;
-  thumbs: string;
+  thumbs: string[];
   play_count?: number;
   last_played?: number | null;
 }
@@ -37,7 +38,7 @@ const Card = ({ title, thumbs, rate, date, play_count, last_played }: CardProps)
       setCurrentIndex((prevIndex) => (
         prevIndex === totalImages - 1 ? 0 : prevIndex + 1
       ));
-    }, 3000);
+            }, 3000);
 
     return () => clearInterval(intervalId);
   }, [totalImages]);
@@ -49,12 +50,12 @@ const Card = ({ title, thumbs, rate, date, play_count, last_played }: CardProps)
 
   const renderStars = (rating: number) => {
     return (
-      <div className="flex">
-        {[...Array(5)].map((_, i) => (
-          <span key={i} className={i < rating ? "text-yellow-500" : "opacity-50"}>★</span>
-        ))}
-      </div>
-    );
+    <div className="flex">
+      {[...Array(5)].map((_, i) => (
+        <span key={i} className={i < rating ? "text-yellow-500" : "opacity-50"}>★</span>
+      ))}
+    </div>
+  );
   };
 
   return (
@@ -67,11 +68,11 @@ const Card = ({ title, thumbs, rate, date, play_count, last_played }: CardProps)
           >
             {thumbs.map((base64, index) => (
               <div key={index} className="w-full flex-shrink-0">
-                <img
+            <img
                   src={`data:image/jpeg;base64,${base64}`}
-                  alt={title}
-                  className="w-full h-full object-contain"
-                />
+              alt={title}
+              className="w-full h-full object-contain"
+            />
               </div>
             ))}
           </div>
@@ -82,9 +83,7 @@ const Card = ({ title, thumbs, rate, date, play_count, last_played }: CardProps)
         )}
       </div>
       <div className="p-3 flex flex-col gap-1 text-left">
-        <h3 className="text-sm truncate" title={title}>
-          {title}
-        </h3>
+        <h3 className="text-sm truncate" title={title}>{title}</h3>
         <div className="flex items-center justify-between text-xs">
           <span className="opacity-50">{(play_count || 0)}回・{formatDate(date)}</span>
           {renderStars(rate)}
@@ -236,7 +235,19 @@ export default function ListPage() {
   useEffect(() => {
     fetch('/api/data')
       .then(r => r.json())
-      .then((data: any) => setList((data as any[]).sort((a: any, b: any) => b.date - a.date)))
+      .then((data: any[]) => {
+        const mapped = data.map((item: any) => ({
+          ...item,
+          thumbs: (() => {
+            try {
+              return JSON.parse(item.thumbs || '[]');
+            } catch (e) {
+              return [];
+            }
+          })(),
+        }));
+        setList(mapped.sort((a: any, b: any) => b.date - a.date));
+      })
       .catch(console.error);
   }, []);
 
@@ -269,24 +280,33 @@ export default function ListPage() {
 
   return (
     <>
-      <header className="">
+      <header>
         <Drawer sortOrder={sortOrder} setSortOrder={setSortOrder} />
       </header>
-      <div className="container mx-auto p-5 pt-20">
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
-          {sortedList.map((item) => (
-            <button key={item.id} onClick={() => openModal(item)}>
-              <Card
-                title={item.title}
-                thumbs={JSON.parse(item.thumbs)}
-                rate={item.rate}
-                date={item.date}
-                play_count={item.play_count}
-                last_played={item.last_played}
-              />
-            </button>
-          ))}
-        </div>
+      <div className="pt-15">
+        <VirtuosoGrid
+          style={{ height: 'calc(100vh - var(--spacing) * 15)' }}
+          totalCount={sortedList.length}
+          listClassName="container mx-auto p-5 grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3"
+          itemContent={(index) => {
+            const item = sortedList[index];
+            if (!item) return <div />;
+            return (
+              <div>
+                <button onClick={() => openModal(item)} className="w-full p-0 bg-transparent border-0 text-left">
+                  <Card
+                    title={item.title}
+                    thumbs={item.thumbs}
+                    rate={item.rate}
+                    date={item.date}
+                    play_count={item.play_count}
+                    last_played={item.last_played}
+                  />
+                </button>
+              </div>
+            );
+          }}
+        />
       </div>
       {isModalOpen && <Modal item={selectedMedia} onClose={closeModal} />}
     </>
