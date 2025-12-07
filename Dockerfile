@@ -5,8 +5,8 @@ FROM node:20-alpine AS builder
 
 # ユーザーとグループを作成
 # Next.js の推奨設定に合わせ、セキュリティのために root 権限で実行しないようにします
-RUN addgroup --system --gid 1000 nodejs
-RUN adduser --system --uid 1000 nextjs
+RUN addgroup --system --gid 2000 nodejs
+RUN adduser --system --uid 1000 -G nodejs nextjs
 
 # 作業ディレクトリを設定
 WORKDIR /app
@@ -34,8 +34,8 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 
 # ステージ1で作成したユーザーとグループを再利用
-RUN addgroup --system --gid 1000 nodejs
-RUN adduser --system --uid 1000 nextjs
+RUN addgroup --system --gid 2000 nodejs
+RUN adduser --system --uid 1000 -G nodejs nextjs
 
 # next.js の standalone出力をコピー
 # --chown を使って、コピーしたファイルの所有者を非rootユーザー (nextjs) に変更
