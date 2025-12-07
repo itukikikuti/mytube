@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { NextResponse } from 'next/server';
 
-const EXTERNAL_VIDEO_DIR = 'N:\\Videos';
+const EXTERNAL_VIDEO_DIR = '/app/nas/Videos';
 
 export async function GET(request) {
   const filename = request.nextUrl.searchParams.get('filename');
