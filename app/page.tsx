@@ -99,9 +99,11 @@ const Card = ({ media }: CardProps) => {
 interface ModalProps {
   item: MediaItem | null;
   onClose: () => void;
+  onAddThumb?: (thumb: string) => void;
+  onRemoveThumb?: (index: number) => void;
 }
 
-const Modal = ({ item, onClose }: ModalProps) => {
+const Modal = ({ item, onClose, onAddThumb, onRemoveThumb }: ModalProps) => {
   useEffect(() => {
     document.body.style.overflow = 'hidden';
 
@@ -127,10 +129,36 @@ const Modal = ({ item, onClose }: ModalProps) => {
     }
   };
 
+  const handleAddThumb = () => {
+    try {
+      const video = videoRef.current;
+      if (!video) return;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = (video.videoWidth / video.videoHeight) * 180;
+      canvas.height = 180;
+
+      const ctx = canvas.getContext('2d');
+      if (ctx !== null) {
+        ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight, 0, 0, canvas.width, canvas.height);
+      }
+
+      // use quality 0.5 (50%) — canvas expects 0..1
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
+      // normalize to plain base64 (strip data: prefix) to match existing storage format
+      const base64 = dataUrl.startsWith('data:') ? dataUrl.split(',')[1] : dataUrl;
+      if (onAddThumb) onAddThumb(base64);
+    } catch (err) {
+      console.error('サムネイルの作成に失敗しました', err);
+    }
+  };
+
+  
+
   return (
     <div className="fixed inset-0 flex justify-center items-center z-50" onClick={onClose} onWheel={onWheel2}>
-      <div className="bg-white w-screen h-screen overflow-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="w-full h-8/10 bg-black">
+      <div className="bg-white w-screen h-screen overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="w-full h-8/10 bg-black flex-shrink-0">
           <div className="w-full h-full">
             <video
               key={item?.title}
@@ -144,13 +172,44 @@ const Modal = ({ item, onClose }: ModalProps) => {
             </video>
           </div>
         </div>
-        <div className="p-5">
+        <div className="p-5 flex-1 overflow-auto">
           <div className="flex items-start justify-between">
             <div>
               <h2 className="text-xl font-bold">{item?.title}</h2>
               <div className="text-sm text-gray-500 mt-1">
                 {item ? `${item.play_count || 0} 回視聴・${new Date(item.date * 1000).toLocaleDateString()}` : ''}
               </div>
+              {item?.thumbs && item.thumbs.length > 0 && (
+                <div className="mt-3">
+                  <div className="flex items-center gap-2 overflow-x-auto">
+                      <div className="flex-1 overflow-x-auto">
+                        <div className="flex items-center gap-2">
+                          {item.thumbs.map((b64, idx) => (
+                            <div key={idx} className="relative group flex-shrink-0 rounded overflow-hidden">
+                              <img src={b64 && b64.startsWith('data:') ? b64 : `data:image/jpeg;base64,${b64}`} alt={`${item?.title}-thumb-${idx}`} className="w-32 h-20 object-cover" />
+                              <button
+                                onClick={(e) => { e.stopPropagation(); onRemoveThumb?.(idx); }}
+                                aria-label="Remove thumbnail"
+                                className="absolute top-1 right-1 hidden group-hover:flex items-center justify-center w-7 h-7 bg-white/90 rounded text-sm"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex-shrink-0 ml-2">
+                        <button
+                          onClick={handleAddThumb}
+                          aria-label="Add thumbnail"
+                          className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center text-xl font-semibold"
+                        >
+                          +
+                        </button>
+                      </div>
+                  </div>
+                </div>
+              )}
             </div>
             <a
               className="text-sm text-blue-600"
@@ -281,6 +340,47 @@ export default function ListPage() {
     setSelectedMedia(null);
   };
 
+  const addThumbToMedia = (thumb: string) => {
+    if (!selectedMedia) return;
+    // persist to server then update local state
+    (async () => {
+      try {
+        const res = await fetch('/api/thumbs/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ media: selectedMedia.id, thumb }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.message || 'failed');
+        const thumbs = json.thumbs || ((selectedMedia.thumbs || []).concat([thumb]));
+        setList(prev => prev.map(m => m.id === selectedMedia.id ? { ...m, thumbs } : m));
+        setSelectedMedia(prev => prev ? { ...prev, thumbs } : prev);
+      } catch (err) {
+        console.error('failed to add thumb', err);
+      }
+    })();
+  };
+
+  const removeThumbFromMedia = (index: number) => {
+    if (!selectedMedia) return;
+    (async () => {
+      try {
+        const res = await fetch('/api/thumbs/remove', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ media: selectedMedia.id, index }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.message || 'failed');
+        const thumbs = json.thumbs || (selectedMedia.thumbs || []).filter((_, i) => i !== index);
+        setList(prev => prev.map(m => m.id === selectedMedia.id ? { ...m, thumbs } : m));
+        setSelectedMedia(prev => prev ? { ...prev, thumbs } : prev);
+      } catch (err) {
+        console.error('failed to remove thumb', err);
+      }
+    })();
+  };
+
   return (
     <>
       <header>
@@ -304,7 +404,7 @@ export default function ListPage() {
           }}
         />
       </div>
-      {isModalOpen && <Modal item={selectedMedia} onClose={closeModal} />}
+      {isModalOpen && <Modal item={selectedMedia} onClose={closeModal} onAddThumb={addThumbToMedia} onRemoveThumb={removeThumbFromMedia} />}
     </>
   );
 }
