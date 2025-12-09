@@ -4,12 +4,7 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import { VirtuosoGrid } from 'react-virtuoso';
 
 interface CardProps {
-  title: string;
-  thumbs: string[];
-  rate: number;
-  date: number;
-  play_count?: number;
-  last_played?: number | null;
+  media: MediaItem;
 }
 
 type MediaItem = {
@@ -25,12 +20,15 @@ type MediaItem = {
   last_played?: number | null;
 }
 
-const Card = ({ title, thumbs, rate, date, play_count, last_played }: CardProps) => {
+const Card = ({ media }: CardProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  const hasImages = thumbs && thumbs.length > 0;
-  const totalImages = hasImages ? thumbs.length : 0;
+  const hasImages = media.thumbs && media.thumbs.length > 0;
+  const totalImages = hasImages ? media.thumbs.length : 0;
 
+  const minutes = Math.floor(media.duration / 60).toString();
+  const seconds = ("00" + (media.duration % 60).toString()).slice(-2);
+  
   useEffect(() => {
     if (totalImages <= 1) return;
 
@@ -52,25 +50,25 @@ const Card = ({ title, thumbs, rate, date, play_count, last_played }: CardProps)
     return (
     <div className="flex">
       {[...Array(5)].map((_, i) => (
-        <span key={i} className={i < rating ? "text-yellow-500" : "opacity-50"}>★</span>
+        <span key={i} className={i < rating ? "text-pink-400" : "opacity-50"}>♥</span>
       ))}
     </div>
   );
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-lg overflow-hidden transition duration-300 hover:shadow-xl hover:scale-[1.02]">
-      <div className="bg-black relative w-full aspect-video">
+    <div className="w-full aspect-5/6 sm:aspect-12/11 rounded-2xl shadow-md overflow-hidden transition duration-300 hover:shadow-lg hover:scale-[1.01]">
+      <div className="bg-black w-full aspect-video relative">
         {hasImages ? (
           <div
             className="h-full flex transition-transform duration-500 ease-in-out"
             style={{ transform: `translateX(-${currentIndex * 100}%)` }}
           >
-            {thumbs.map((base64, index) => (
+            {media.thumbs.map((base64, index) => (
               <div key={index} className="w-full flex-shrink-0">
             <img
                   src={`data:image/jpeg;base64,${base64}`}
-              alt={title}
+              alt={media.title}
               className="w-full h-full object-contain"
             />
               </div>
@@ -81,12 +79,17 @@ const Card = ({ title, thumbs, rate, date, play_count, last_played }: CardProps)
             <span className="text-white opacity-50">No Image</span>
           </div>
         )}
+        {(typeof media.duration === 'number' && media.duration > 0) && (
+          <div className="absolute right-2 bottom-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+            {minutes}:{seconds}
+          </div>
+        )}
       </div>
-      <div className="p-3 flex flex-col gap-1 text-left">
-        <h3 className="text-sm truncate" title={title}>{title}</h3>
+      <div className="p-3 flex flex-col justify-between gap-1 text-left">
+        <h3 className="text-sm line-clamp-2 sm:line-clamp-3 break-all overflow-hidden">{media.title}</h3>
         <div className="flex items-center justify-between text-xs">
-          <span className="opacity-50">{(play_count || 0)}回・{formatDate(date)}</span>
-          {renderStars(rate)}
+          <span className="opacity-50">{(media.play_count || 0)}回・{formatDate(media.date)}</span>
+          {renderStars(media.rate)}
         </div>
       </div>
     </div>
@@ -114,7 +117,7 @@ const Modal = ({ item, onClose }: ModalProps) => {
     if (!video) return;
 
     // ページ全体のスクロールを抑止
-    e.preventDefault();
+    // e.preventDefault();
 
     const step = 3; // 3秒ずつ移動
     if (e.deltaY < 0) {
@@ -184,7 +187,7 @@ function Drawer({ sortOrder, setSortOrder }: { sortOrder: string; setSortOrder: 
   }
   
   return (
-    <nav className="fixed top-0 left-0 w-full z-40 bg-white p-4 shadow-md flex items-center">
+    <nav className="fixed top-0 left-0 w-full z-40 bg-white p-4 flex items-center">
       <button className="relative z-50 focus:outline-none" onClick={toggleDrawer} aria-label="Toggle Menu">
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           {isOpen ? (
@@ -198,7 +201,7 @@ function Drawer({ sortOrder, setSortOrder }: { sortOrder: string; setSortOrder: 
       <div className="ml-3 text-lg font-semibold select-none">MyTube</div>
 
       <div
-        className={`fixed top-0 left-0 h-full w-128 bg-white shadow-xl transform transition-transform duration-300 ease-in-out z-20 ${
+        className={`fixed top-0 left-0 h-full w-full sm:w-128 bg-white shadow-xl transform transition-transform duration-300 ease-in-out z-20 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -208,14 +211,14 @@ function Drawer({ sortOrder, setSortOrder }: { sortOrder: string; setSortOrder: 
             <select
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value)}
-              className="w-full border rounded p-2 text-sm"
+              className="w-full border rounded p-2 text-md"
               aria-label="並び順"
             >
               <option value="newest">新しい順</option>
               <option value="oldest">古い順</option>
+              <option value="last_played">再生した順</option>
               <option value="most_played">再生回数が多い順</option>
               <option value="highest_rated">評価が高い順</option>
-              <option value="last_played">最終再生が新しい順</option>
             </select>
           </div>
         </div>
@@ -289,19 +292,12 @@ export default function ListPage() {
           totalCount={sortedList.length}
           listClassName="container mx-auto p-5 grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3"
           itemContent={(index) => {
-            const item = sortedList[index];
-            if (!item) return <div />;
+            const media = sortedList[index];
+            if (!media) return <div />;
             return (
               <div>
-                <button onClick={() => openModal(item)} className="w-full p-0 bg-transparent border-0 text-left">
-                  <Card
-                    title={item.title}
-                    thumbs={item.thumbs}
-                    rate={item.rate}
-                    date={item.date}
-                    play_count={item.play_count}
-                    last_played={item.last_played}
-                  />
+                <button onClick={() => openModal(media)} className="w-full p-0 bg-transparent border-0 text-left">
+                  <Card media={media} />
                 </button>
               </div>
             );
