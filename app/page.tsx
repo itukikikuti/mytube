@@ -23,24 +23,82 @@ type MediaItem = {
 
 const Card = ({ media }: CardProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [thumbs, setThumbs] = useState<string[]>(media.thumbs || []);
+  const mountedRef = useRef(true);
+  // instance id to trace virtualization reuse
+  const instanceIdRef = useRef<number | null>(null);
+  if (instanceIdRef.current === null) {
+    instanceIdRef.current = Math.floor(Math.random() * 1e6);
+  }
+  const iid = instanceIdRef.current;
+  console.log(`[Card#${iid}] render id=${media?.id} initialThumbs=${(media?.thumbs || []).length} stateThumbs=${thumbs.length}`);
   
-  const hasImages = media.thumbs && media.thumbs.length > 0;
-  const totalImages = hasImages ? media.thumbs.length : 0;
+  const hasImages = thumbs && thumbs.length > 0;
+  const totalImages = hasImages ? thumbs.length : 0;
 
   const minutes = Math.floor(media.duration / 60).toString();
   const seconds = ("00" + (media.duration % 60).toString()).slice(-2);
   
+  // --- fetch thumbnails when media.id changes (only) ---
   useEffect(() => {
-    if (totalImages <= 1) return;
+    let aborted = false;
+    const controller = new AbortController();
 
-    const intervalId = setInterval(() => {
-      setCurrentIndex((prevIndex) => (
-        prevIndex === totalImages - 1 ? 0 : prevIndex + 1
-      ));
-            }, 3000);
+    // reset to any thumbs provided on the prop when media changes
+    setThumbs(media.thumbs || []);
+    mountedRef.current = true;
 
-    return () => clearInterval(intervalId);
-  }, [totalImages]);
+    (async () => {
+      if (!media || !media.id) return;
+      if (media.thumbs && media.thumbs.length > 0) {
+        console.log(`[Card#${iid}] media has thumbs in props, skipping fetch id=${media.id}`);
+        return;
+      }
+      console.log(`[Card#${iid}] fetching thumbs for id=${media.id}`);
+      try {
+        const res = await fetch(`/api/thumbs/${media.id}`, { signal: controller.signal });
+        if (!res.ok) {
+          console.log(`[Card#${iid}] fetch /api/thumbs/${media.id} returned ${res.status}`);
+          return;
+        }
+        const json = await res.json();
+        let list: string[] = [];
+        if (Array.isArray(json)) list = json;
+        else if (json && Array.isArray(json.thumbs)) list = json.thumbs;
+        console.log(`[Card#${iid}] thumbs fetched for id=${media.id} len=${list.length}`);
+        if (!aborted && mountedRef.current) setThumbs(list);
+      } catch (err: any) {
+        if (err.name === 'AbortError') {
+          console.log(`[Card#${iid}] fetch aborted for id=${media.id}`);
+        } else {
+          console.error(`[Card#${iid}] failed to fetch thumbs for card`, err);
+        }
+      }
+    })();
+
+    return () => {
+      aborted = true;
+      controller.abort();
+      mountedRef.current = false;
+    };
+  }, [media?.id]);
+
+  // --- autoplay interval for thumbs, depends on thumbs.length only ---
+  useEffect(() => {
+    if (thumbs && thumbs.length > 1) {
+      const intervalId = setInterval(() => {
+        setCurrentIndex((prevIndex) => (
+          prevIndex === thumbs.length - 1 ? 0 : prevIndex + 1
+        ));
+      }, 3000);
+      return () => clearInterval(intervalId);
+    }
+    return;
+  }, [thumbs.length]);
+  
+  useEffect(() => {
+    return () => { mountedRef.current = false; console.log(`[Card#${iid}] unmount id=${media?.id}`); };
+  }, []);
 
   const formatDate = (timestamp: number) => {
     if (!timestamp) return '';
@@ -58,17 +116,17 @@ const Card = ({ media }: CardProps) => {
   };
 
   return (
-    <div className="w-full aspect-5/6 sm:aspect-12/11 rounded-2xl shadow-md overflow-hidden transition duration-300 hover:shadow-lg hover:scale-[1.01]">
+    <div data-thumb-count={thumbs.length} className="w-full aspect-5/6 sm:aspect-12/11 rounded-2xl shadow-md overflow-hidden transition duration-300 hover:shadow-lg hover:scale-[1.01]">
       <div className="bg-black w-full aspect-video relative">
         {hasImages ? (
           <div
             className="h-full flex transition-transform duration-500 ease-in-out"
             style={{ transform: `translateX(-${currentIndex * 100}%)` }}
           >
-            {media.thumbs.map((base64, index) => (
+            {thumbs.map((base64, index) => (
               <div key={index} className="w-full flex-shrink-0">
                 <img
-                  src={`data:image/jpeg;base64,${base64}`}
+                  src={base64 && base64.startsWith('data:') ? base64 : `data:image/jpeg;base64,${base64}`}
                   alt={media.title}
                   className="w-full h-full object-contain"
                 />
@@ -356,18 +414,27 @@ export default function ListPage() {
       .then((data: any[]) => {
         const mapped = data.map((item: any) => ({
           ...item,
-          thumbs: (() => {
-            try {
-              return JSON.parse(item.thumbs || '[]');
-            } catch (e) {
-              return [];
-            }
-          })(),
+          thumbs: [], // thumbs now fetched per-item from /api/thumbs/{id}
         }));
         setList(mapped.sort((a: any, b: any) => b.date - a.date));
       })
       .catch(console.error);
   }, []);
+
+  // helper to fetch thumbs for a media id
+  const fetchThumbs = async (mediaId: number): Promise<string[]> => {
+    try {
+      const res = await fetch(`/api/thumbs/${mediaId}`);
+      if (!res.ok) return [];
+      const json = await res.json();
+      if (Array.isArray(json)) return json;
+      if (json && Array.isArray(json.thumbs)) return json.thumbs;
+      return [];
+    } catch (err) {
+      console.error('failed to fetch thumbs', err);
+      return [];
+    }
+  };
 
   const sortedList = useMemo(() => {
     const copy = [...list];
@@ -388,8 +455,11 @@ export default function ListPage() {
   }, [list, sortOrder]);
 
   const openModal = (item: MediaItem) => {
-    setIsModalOpen(true);
-    setSelectedMedia(item);
+    (async () => {
+      const thumbs = await fetchThumbs(item.id);
+      setSelectedMedia({ ...item, thumbs });
+      setIsModalOpen(true);
+    })();
   }
   const closeModal = () => {
     setIsModalOpen(false);
@@ -470,7 +540,7 @@ export default function ListPage() {
             const media = sortedList[index];
             if (!media) return <div />;
             return (
-              <div>
+              <div key={media.id}>
                 <button onClick={() => openModal(media)} className="w-full p-0 bg-transparent border-0 text-left">
                   <Card media={media} />
                 </button>

@@ -4,7 +4,7 @@ import { getDbConnection } from '@/lib/db';
 export async function GET() {
   try {
     const db = await getDbConnection();
-    const results = await db.all('SELECT * FROM media_items');
+    const results = await db.all('SELECT id, title, date, type, duration, rate, tags FROM media_items');
 
     // 再生履歴から再生回数と最終再生日時を取得
     const counts = await db.all(`
