@@ -236,7 +236,11 @@ const Modal = ({ item, onClose, onAddThumb, onRemoveThumb, onRate }: ModalProps)
                       return (
                         <button
                           key={i}
-                          onClick={(e) => { e.stopPropagation(); onRate?.(i + 1); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const newRating = (item?.rate === (i + 1)) ? 0 : (i + 1);
+                            onRate?.(newRating);
+                          }}
                           aria-label={`Rate ${i + 1}`}
                           title={`${i + 1} 点`}
                           className="p-1 hover:scale-125 transition-transform text-3xl"
