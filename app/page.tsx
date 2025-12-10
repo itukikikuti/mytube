@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { VirtuosoGrid } from 'react-virtuoso';
+import { HiMenu, HiX, HiPlus, HiStar, HiOutlineStar, HiOutlinePhotograph, HiExternalLink } from 'react-icons/hi';
 
 interface CardProps {
   media: MediaItem;
@@ -22,7 +23,7 @@ type MediaItem = {
 
 const Card = ({ media }: CardProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
-
+  
   const hasImages = media.thumbs && media.thumbs.length > 0;
   const totalImages = hasImages ? media.thumbs.length : 0;
 
@@ -66,21 +67,22 @@ const Card = ({ media }: CardProps) => {
           >
             {media.thumbs.map((base64, index) => (
               <div key={index} className="w-full flex-shrink-0">
-            <img
+                <img
                   src={`data:image/jpeg;base64,${base64}`}
-              alt={media.title}
-              className="w-full h-full object-contain"
-            />
+                  alt={media.title}
+                  className="w-full h-full object-contain"
+                />
               </div>
             ))}
           </div>
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <span className="text-white opacity-50">No Image</span>
+            <HiOutlinePhotograph className="text-white opacity-50 w-8 h-8" />
+            <span className="text-white opacity-50 ml-2">No Image</span>
           </div>
         )}
         {(typeof media.duration === 'number' && media.duration > 0) && (
-          <div className="absolute right-2 bottom-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+          <div className="absolute right-2 bottom-2 bg-black bg-opacity-10 text-white text-xs px-2 py-1 rounded">
             {minutes}:{seconds}
           </div>
         )}
@@ -89,21 +91,60 @@ const Card = ({ media }: CardProps) => {
         <h3 className="text-sm line-clamp-2 sm:line-clamp-3 break-all overflow-hidden">{media.title}</h3>
         <div className="flex items-center justify-between text-xs">
           <span className="opacity-50">{(media.play_count || 0)}回・{formatDate(media.date)}</span>
-          {renderStars(media.rate)}
+          <RatingStars rating={media.rate} />
         </div>
       </div>
     </div>
   );
 };
 
+// 共通の評価表示ヘルパー
+type RatingStarsProps = {
+  rating: number;
+  interactive?: boolean;
+  onRate?: (rating: number) => void;
+  size?: number;
+}
+
+function RatingStars({ rating, interactive = false, onRate, size = 5 }: RatingStarsProps) {
+  const handleClick = (i: number) => {
+    if (!interactive) return;
+    onRate?.(i + 1);
+  };
+
+  return (
+    <div className="flex items-center">
+      {[...Array(5)].map((_, i) => {
+        const filled = i < (rating || 0);
+        const cls = filled ? 'text-yellow-400' : 'opacity-50';
+        return (
+          <button
+            key={i}
+            onClick={(e) => { e.stopPropagation(); handleClick(i); }}
+            aria-label={`Rate ${i + 1}`}
+            title={`${i + 1} 点`}
+            className={`p-1 ${interactive ? 'hover:scale-110 transition-transform' : ''}`}
+            type="button"
+          >
+            <span className={cls}>
+              {filled ? <HiStar className={`w-${size} h-${size} inline-block`} /> : <HiOutlineStar className={`w-${size} h-${size} inline-block`} />}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 interface ModalProps {
   item: MediaItem | null;
   onClose: () => void;
   onAddThumb?: (thumb: string) => void;
   onRemoveThumb?: (index: number) => void;
+  onRate?: (rating: number) => void;
 }
 
-const Modal = ({ item, onClose, onAddThumb, onRemoveThumb }: ModalProps) => {
+const Modal = ({ item, onClose, onAddThumb, onRemoveThumb, onRate }: ModalProps) => {
   useEffect(() => {
     document.body.style.overflow = 'hidden';
 
@@ -153,12 +194,16 @@ const Modal = ({ item, onClose, onAddThumb, onRemoveThumb }: ModalProps) => {
     }
   };
 
-  
-
   return (
     <div className="fixed inset-0 flex justify-center items-center z-50" onClick={onClose} onWheel={onWheel2}>
-      <div className="bg-white w-screen h-screen overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="w-full h-8/10 bg-black flex-shrink-0">
+        <button
+          onClick={(e) => { e.stopPropagation(); onClose(); }}
+          aria-label="Close modal"
+          className="absolute left-4 z-50 text-3xl leading-none bg-white/90 rounded-full w-10 h-10 flex items-center justify-center"
+          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}
+        ><HiX className="w-5 h-5" /></button>
+        <div className="bg-white w-screen h-screen overflow-hidden flex flex-col relative" onClick={(e) => e.stopPropagation()}>
+        <div className="w-full h-1/2 sm:h-8/10 bg-black flex-shrink-0">
           <div className="w-full h-full">
             <video
               key={item?.title}
@@ -179,44 +224,58 @@ const Modal = ({ item, onClose, onAddThumb, onRemoveThumb }: ModalProps) => {
               <div className="text-sm text-gray-500 mt-1">
                 {item ? `${item.play_count || 0} 回視聴・${new Date(item.date * 1000).toLocaleDateString()}` : ''}
               </div>
+              {item && (
+                <div className="mt-2">
+                  <RatingStars
+                    rating={item.rate}
+                    interactive
+                    onRate={(r) => {
+                      // 更新を親に委譲
+                      onRate?.(r);
+                    }}
+                  />
+                </div>
+              )}
               {item?.thumbs && item.thumbs.length > 0 && (
-                <div className="mt-3">
-                  <div className="flex items-center gap-2 overflow-x-auto">
-                      <div className="flex-1 overflow-x-auto">
-                        <div className="flex items-center gap-2">
-                          {item.thumbs.map((b64, idx) => (
-                            <div key={idx} className="relative group flex-shrink-0 rounded overflow-hidden">
-                              <img src={b64 && b64.startsWith('data:') ? b64 : `data:image/jpeg;base64,${b64}`} alt={`${item?.title}-thumb-${idx}`} className="w-32 h-20 object-cover" />
-                              <button
-                                onClick={(e) => { e.stopPropagation(); onRemoveThumb?.(idx); }}
-                                aria-label="Remove thumbnail"
-                                className="absolute top-1 right-1 hidden group-hover:flex items-center justify-center w-7 h-7 bg-white/90 rounded text-sm"
-                              >
-                                ×
-                              </button>
-                            </div>
-                          ))}
+                <div className="mt-3 flex items-center gap-2">
+                  <div className="flex-shrink-0">
+                    <button
+                      onClick={handleAddThumb}
+                      aria-label="Add thumbnail"
+                      className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center text-xl font-semibold"
+                    >
+                      <HiPlus className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-x-auto">
+                    <div className="flex items-center gap-2">
+                      {item.thumbs.map((b64, idx) => (
+                        <div key={idx} className="relative group flex-shrink-0 rounded overflow-hidden">
+                          <img src={b64 && b64.startsWith('data:') ? b64 : `data:image/jpeg;base64,${b64}`} alt={`${item?.title}-thumb-${idx}`} className="w-32 h-20 object-cover" />
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onRemoveThumb?.(idx); }}
+                            aria-label="Remove thumbnail"
+                            className="absolute top-1 right-1 flex items-center justify-center w-7 h-7 bg-white/90 rounded text-sm"
+                          >
+                            <HiX className="w-3 h-3" />
+                          </button>
                         </div>
-                      </div>
-                      <div className="flex-shrink-0 ml-2">
-                        <button
-                          onClick={handleAddThumb}
-                          aria-label="Add thumbnail"
-                          className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center text-xl font-semibold"
-                        >
-                          +
-                        </button>
-                      </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
             </div>
-            <a
-              className="text-sm text-blue-600"
-              href={item ? `mytube:N:\\Videos\\${item.title}` : '#'}
+            <button
+              className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-300 border border-transparent"
               onClick={async (e) => {
+                e.stopPropagation();
                 e.preventDefault();
                 if (!item) return;
+
+                const confirmed = window.confirm(`${item.title} をローカルで開きますか？`);
+                if (!confirmed) return;
+
                 const href = `mytube:N:\\Videos\\${item.title}`;
                 try {
                   await fetch('/api/history', {
@@ -229,8 +288,11 @@ const Modal = ({ item, onClose, onAddThumb, onRemoveThumb }: ModalProps) => {
                 }
                 window.location.href = href;
               }}
-            >開く（ローカル）</a>
-            <button onClick={onClose} className="text-4xl leading-none ml-4" aria-label="Close modal">&times;</button>
+              aria-label="開く（ローカル）"
+              title="開く（ローカル）"
+            >
+              <HiExternalLink className="w-5 h-5" />
+            </button>
           </div>
         </div>
       </div>
@@ -248,13 +310,7 @@ function Drawer({ sortOrder, setSortOrder }: { sortOrder: string; setSortOrder: 
   return (
     <nav className="fixed top-0 left-0 w-full z-40 bg-white p-4 flex items-center">
       <button className="relative z-50 focus:outline-none" onClick={toggleDrawer} aria-label="Toggle Menu">
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          {isOpen ? (
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-          ) : (
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-          )}
-        </svg>
+        {isOpen ? <HiX className="w-6 h-6" /> : <HiMenu className="w-6 h-6" />}
       </button>
 
       <div className="ml-3 text-lg font-semibold select-none">MyTube</div>
@@ -381,6 +437,25 @@ export default function ListPage() {
     })();
   };
 
+  // 評価を行う（楽観更新してサーバーへ送信）
+  const rateMedia = (mediaId: number, rating: number) => {
+    // optimistic update
+    setList(prev => prev.map(m => m.id === mediaId ? { ...m, rate: rating } : m));
+    setSelectedMedia(prev => prev ? { ...prev, rate: rating } : prev);
+
+    (async () => {
+      try {
+        await fetch('/api/rate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ media: mediaId, rate: rating }),
+        });
+      } catch (err) {
+        console.error('failed to send rating', err);
+      }
+    })();
+  };
+
   return (
     <>
       <header>
@@ -404,7 +479,15 @@ export default function ListPage() {
           }}
         />
       </div>
-      {isModalOpen && <Modal item={selectedMedia} onClose={closeModal} onAddThumb={addThumbToMedia} onRemoveThumb={removeThumbFromMedia} />}
+      {isModalOpen && (
+        <Modal
+          item={selectedMedia}
+          onClose={closeModal}
+          onAddThumb={addThumbToMedia}
+          onRemoveThumb={removeThumbFromMedia}
+          onRate={(r) => { if (selectedMedia) rateMedia(selectedMedia.id, r); }}
+        />
+      )}
     </>
   );
 }
