@@ -25,59 +25,34 @@ const Card = ({ media }: CardProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [thumbs, setThumbs] = useState<string[]>(media.thumbs || []);
   const mountedRef = useRef(true);
-  // instance id to trace virtualization reuse
-  const instanceIdRef = useRef<number | null>(null);
-  if (instanceIdRef.current === null) {
-    instanceIdRef.current = Math.floor(Math.random() * 1e6);
-  }
-  const iid = instanceIdRef.current;
-  console.log(`[Card#${iid}] render id=${media?.id} initialThumbs=${(media?.thumbs || []).length} stateThumbs=${thumbs.length}`);
-  
+
   const hasImages = thumbs && thumbs.length > 0;
   const totalImages = hasImages ? thumbs.length : 0;
 
   const minutes = Math.floor(media.duration / 60).toString();
   const seconds = ("00" + (media.duration % 60).toString()).slice(-2);
-  
+
   // --- fetch thumbnails when media.id changes (only) ---
   useEffect(() => {
-    let aborted = false;
     const controller = new AbortController();
-
-    // reset to any thumbs provided on the prop when media changes
     setThumbs(media.thumbs || []);
     mountedRef.current = true;
 
     (async () => {
-      if (!media || !media.id) return;
-      if (media.thumbs && media.thumbs.length > 0) {
-        console.log(`[Card#${iid}] media has thumbs in props, skipping fetch id=${media.id}`);
-        return;
-      }
-      console.log(`[Card#${iid}] fetching thumbs for id=${media.id}`);
+      if (!media?.id) return;
+      if (media.thumbs && media.thumbs.length > 0) return;
       try {
         const res = await fetch(`/api/thumbs/${media.id}`, { signal: controller.signal });
-        if (!res.ok) {
-          console.log(`[Card#${iid}] fetch /api/thumbs/${media.id} returned ${res.status}`);
-          return;
-        }
+        if (!res.ok) return;
         const json = await res.json();
-        let list: string[] = [];
-        if (Array.isArray(json)) list = json;
-        else if (json && Array.isArray(json.thumbs)) list = json.thumbs;
-        console.log(`[Card#${iid}] thumbs fetched for id=${media.id} len=${list.length}`);
-        if (!aborted && mountedRef.current) setThumbs(list);
+        const list = Array.isArray(json) ? json : (Array.isArray(json?.thumbs) ? json.thumbs : []);
+        if (mountedRef.current) setThumbs(list);
       } catch (err: any) {
-        if (err.name === 'AbortError') {
-          console.log(`[Card#${iid}] fetch aborted for id=${media.id}`);
-        } else {
-          console.error(`[Card#${iid}] failed to fetch thumbs for card`, err);
-        }
+        if (err.name !== 'AbortError') console.error('thumbs fetch failed', err);
       }
     })();
 
     return () => {
-      aborted = true;
       controller.abort();
       mountedRef.current = false;
     };
@@ -95,9 +70,9 @@ const Card = ({ media }: CardProps) => {
     }
     return;
   }, [thumbs.length]);
-  
+
   useEffect(() => {
-    return () => { mountedRef.current = false; console.log(`[Card#${iid}] unmount id=${media?.id}`); };
+    return () => { mountedRef.current = false; };
   }, []);
 
   const formatDate = (timestamp: number) => {
@@ -107,12 +82,12 @@ const Card = ({ media }: CardProps) => {
 
   const renderStars = (rating: number) => {
     return (
-    <div className="flex">
-      {[...Array(5)].map((_, i) => (
-        <span key={i} className={i < rating ? "text-pink-400" : "opacity-50"}>♥</span>
-      ))}
-    </div>
-  );
+      <div className="flex">
+        {[...Array(5)].map((_, i) => (
+          <span key={i} className={i < rating ? "text-pink-400" : "opacity-50"}>♥</span>
+        ))}
+      </div>
+    );
   };
 
   return (
@@ -149,50 +124,20 @@ const Card = ({ media }: CardProps) => {
         <h3 className="text-sm line-clamp-2 sm:line-clamp-3 break-all overflow-hidden">{media.title}</h3>
         <div className="flex items-center justify-between text-xs">
           <span className="opacity-50">{(media.play_count || 0)}回・{formatDate(media.date)}</span>
-          <RatingStars rating={media.rate} />
+          <div className="flex">
+            {[...Array(5)].map((_, i) => (
+              <span key={i} className={i < media.rate ? 'text-pink-400' : 'opacity-50'}>
+                ♥
+              </span>
+            ))}
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-// 共通の評価表示ヘルパー
-type RatingStarsProps = {
-  rating: number;
-  interactive?: boolean;
-  onRate?: (rating: number) => void;
-  size?: number;
-}
 
-function RatingStars({ rating, interactive = false, onRate, size = 5 }: RatingStarsProps) {
-  const handleClick = (i: number) => {
-    if (!interactive) return;
-    onRate?.(i + 1);
-  };
-
-  return (
-    <div className="flex items-center">
-      {[...Array(5)].map((_, i) => {
-        const filled = i < (rating || 0);
-        const cls = filled ? 'text-yellow-400' : 'opacity-50';
-        return (
-          <button
-            key={i}
-            onClick={(e) => { e.stopPropagation(); handleClick(i); }}
-            aria-label={`Rate ${i + 1}`}
-            title={`${i + 1} 点`}
-            className={`p-1 ${interactive ? 'hover:scale-110 transition-transform' : ''}`}
-            type="button"
-          >
-            <span className={cls}>
-              {filled ? <HiStar className={`w-${size} h-${size} inline-block`} /> : <HiOutlineStar className={`w-${size} h-${size} inline-block`} />}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 interface ModalProps {
   item: MediaItem | null;
@@ -254,13 +199,13 @@ const Modal = ({ item, onClose, onAddThumb, onRemoveThumb, onRate }: ModalProps)
 
   return (
     <div className="fixed inset-0 flex justify-center items-center z-50" onClick={onClose} onWheel={onWheel2}>
-        <button
-          onClick={(e) => { e.stopPropagation(); onClose(); }}
-          aria-label="Close modal"
-          className="absolute left-4 z-50 text-3xl leading-none bg-white/90 rounded-full w-10 h-10 flex items-center justify-center"
-          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}
-        ><HiX className="w-5 h-5" /></button>
-        <div className="bg-white w-screen h-screen overflow-hidden flex flex-col relative" onClick={(e) => e.stopPropagation()}>
+      <button
+        onClick={(e) => { e.stopPropagation(); onClose(); }}
+        aria-label="Close modal"
+        className="absolute left-4 z-50 text-3xl leading-none bg-white/90 rounded-full w-10 h-10 flex items-center justify-center"
+        style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}
+      ><HiX className="w-5 h-5" /></button>
+      <div className="bg-white w-screen h-screen overflow-hidden flex flex-col relative" onClick={(e) => e.stopPropagation()}>
         <div className="w-full h-1/2 sm:h-8/10 bg-black flex-shrink-0">
           <div className="w-full h-full">
             <video
@@ -284,14 +229,24 @@ const Modal = ({ item, onClose, onAddThumb, onRemoveThumb, onRate }: ModalProps)
               </div>
               {item && (
                 <div className="mt-2">
-                  <RatingStars
-                    rating={item.rate}
-                    interactive
-                    onRate={(r) => {
-                      // 更新を親に委譲
-                      onRate?.(r);
-                    }}
-                  />
+                  <div className="flex items-center gap-1">
+                    {[...Array(5)].map((_, i) => {
+                      const filled = i < (item.rate || 0);
+                      const cls = filled ? 'text-pink-400' : 'opacity-50';
+                      return (
+                        <button
+                          key={i}
+                          onClick={(e) => { e.stopPropagation(); onRate?.(i + 1); }}
+                          aria-label={`Rate ${i + 1}`}
+                          title={`${i + 1} 点`}
+                          className="p-1 hover:scale-125 transition-transform text-3xl"
+                          type="button"
+                        >
+                          <span className={cls}>♥</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
               {item?.thumbs && item.thumbs.length > 0 && (
@@ -364,7 +319,7 @@ function Drawer({ sortOrder, setSortOrder }: { sortOrder: string; setSortOrder: 
   const toggleDrawer = () => {
     setIsOpen(!isOpen);
   }
-  
+
   return (
     <nav className="fixed top-0 left-0 w-full z-40 bg-white p-4 flex items-center">
       <button className="relative z-50 focus:outline-none" onClick={toggleDrawer} aria-label="Toggle Menu">
@@ -374,9 +329,8 @@ function Drawer({ sortOrder, setSortOrder }: { sortOrder: string; setSortOrder: 
       <div className="ml-3 text-lg font-semibold select-none">MyTube</div>
 
       <div
-        className={`fixed top-0 left-0 h-full w-full sm:w-128 bg-white shadow-xl transform transition-transform duration-300 ease-in-out z-20 ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`fixed top-0 left-0 h-full w-full sm:w-128 bg-white shadow-xl transform transition-transform duration-300 ease-in-out z-20 ${isOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
       >
         <div className="p-4 pt-16">
           <div className="mb-4">
