@@ -254,7 +254,7 @@ const Modal = ({ item, onClose, onAddThumb, onRemoveThumb, onRate }: ModalProps)
                   </div>
                 </div>
               )}
-              {item?.thumbs && item.thumbs.length > 0 && (
+              {item && (
                 <div className="mt-3 flex items-center gap-2">
                   <div className="flex-shrink-0">
                     <button
@@ -267,7 +267,7 @@ const Modal = ({ item, onClose, onAddThumb, onRemoveThumb, onRate }: ModalProps)
                   </div>
                   <div className="flex-1 overflow-x-auto">
                     <div className="flex items-center gap-2">
-                      {item.thumbs.map((b64, idx) => (
+                      {item.thumbs && item.thumbs.map((b64, idx) => (
                         <div key={idx} className="relative group flex-shrink-0 rounded overflow-hidden">
                           <img src={b64 && b64.startsWith('data:') ? b64 : `data:image/jpeg;base64,${b64}`} alt={`${item?.title}-thumb-${idx}`} className="w-32 h-20 object-cover" />
                           <button
