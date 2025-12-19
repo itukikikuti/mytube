@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { VirtuosoGrid } from 'react-virtuoso';
 import { Card } from './components/Card';
 import { Modal } from './components/Modal';
-import { Drawer, type FilterOptions } from './components/Drawer';
+import { Drawer, type FilterOptions, type Tag } from './components/Drawer';
 import type { MediaItem } from './types/media';
 
 export default function ListPage() {
@@ -12,6 +12,7 @@ export default function ListPage() {
   const [sortOrder, setSortOrder] = useState('newest');
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [tags, setTags] = useState<Tag[]>([]);
   const [filters, setFilters] = useState<FilterOptions>({
     searchText: '',
     selectedRates: [],
@@ -32,27 +33,21 @@ export default function ListPage() {
       .catch(console.error);
   }, []);
 
-  // 初期フィルター設定（データ読み込み後に全選択状態にする）
+  // タグ一覧を取得
   useEffect(() => {
-    if (list.length > 0 && filters.selectedRates.length === 0) {
-      const tagSet = new Set<string>();
-      list.forEach(item => {
-        if (item.tags) {
-          item.tags.split(',').forEach(tag => {
-            const trimmed = tag.trim();
-            if (trimmed) tagSet.add(trimmed);
-          });
-        }
-      });
-      
-      setFilters({
-        searchText: '',
-        selectedRates: [5, 4, 3, 2, 1, 0],
-        selectedTypes: ['video', 'image', 'anime'],
-        selectedTags: Array.from(tagSet),
-      });
-    }
-  }, [list]);
+    (async () => {
+      try {
+        const res = await fetch('/api/tags');
+        if (!res.ok) return;
+        const rows: Tag[] = await res.json();
+        setTags(rows);
+      } catch (e) {
+        console.error('failed to load tags', e);
+      }
+    })();
+  }, []);
+
+  // 旧: listからタグ文字列を抽出して初期化するロジックは削除（DBのtag_itemsを使用）
 
   // helper to fetch thumbs for a media id
   const fetchThumbs = async (mediaId: number): Promise<string[]> => {
@@ -69,19 +64,10 @@ export default function ListPage() {
     }
   };
 
-  // 利用可能なタグを抽出
+  // 利用可能なタグはDBから取得したもの
   const availableTags = useMemo(() => {
-    const tagSet = new Set<string>();
-    list.forEach(item => {
-      if (item.tags) {
-        item.tags.split(',').forEach(tag => {
-          const trimmed = tag.trim();
-          if (trimmed) tagSet.add(trimmed);
-        });
-      }
-    });
-    return Array.from(tagSet).sort();
-  }, [list]);
+    return [...tags].sort((a, b) => a.name.localeCompare(b.name));
+  }, [tags]);
 
   // フィルタリングとソート
   const filteredAndSortedList = useMemo(() => {
@@ -115,14 +101,44 @@ export default function ListPage() {
       );
     }
 
-    // タグフィルター
+    // タグフィルター（selectedTagsはtag id配列）
     if (filters.selectedTags.length > 0) {
+      const nameToId = new Map<string, number>(tags.map(t => [t.name, t.id]));
       filtered = filtered.filter(item => {
         if (!item.tags) return false;
-        const itemTags = item.tags.split(',').map(t => t.trim());
-        return filters.selectedTags.some(selectedTag => 
-          itemTags.includes(selectedTag)
-        );
+
+        // JSON配列（例: "[72,65,48]"）を優先して解析
+        const itemTagIds = (() => {
+          const raw = item.tags;
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              return parsed
+                .map(v => Number(v))
+                .filter(n => !Number.isNaN(n));
+            }
+          } catch (_) {
+            // JSONでなければ後続のフォールバックへ
+          }
+
+          // フォールバック1: 文字列から数字以外を除去してID配列化（角括弧等を無視）
+          const onlyNums = raw.replace(/[^0-9,]/g, '');
+          const numeric = onlyNums
+            .split(',')
+            .map(s => Number(s))
+            .filter(n => !Number.isNaN(n));
+          if (numeric.length > 0) return numeric;
+
+          // フォールバック2: 名前が入っている場合はname->id変換
+          const names = raw.split(',').map(s => s.trim()).filter(Boolean);
+          const fromNames = names
+            .map(name => nameToId.get(name))
+            .filter((id): id is number => typeof id === 'number');
+          return fromNames;
+        })();
+
+        if (itemTagIds.length === 0) return false;
+        return filters.selectedTags.some(selId => itemTagIds.includes(selId));
       });
     }
 
@@ -142,6 +158,22 @@ export default function ListPage() {
         return filtered.sort((a, b) => b.date - a.date);
     }
   }, [list, sortOrder, filters]);
+  
+  // 初期フィルター設定（DBからタグ取得後に全選択状態にする）
+  useEffect(() => {
+    if (list.length > 0 && tags.length > 0) {
+      setFilters(prev => {
+        // 既に選択済みなら変更しない
+        if (prev.selectedRates.length && prev.selectedTypes.length && prev.selectedTags.length) return prev;
+        return {
+          searchText: '',
+          selectedRates: [5, 4, 3, 2, 1, 0],
+          selectedTypes: ['video', 'image', 'anime'],
+          selectedTags: [],
+        };
+      });
+    }
+  }, [list, tags]);
 
   const openModal = (item: MediaItem) => {
     (async () => {

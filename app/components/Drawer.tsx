@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react';
 import { HiMenu, HiX } from 'react-icons/hi';
 
+export interface Tag {
+  id: number;
+  name: string;
+}
+
 export interface FilterOptions {
   searchText: string;
   selectedRates: number[];
   selectedTypes: string[];
-  selectedTags: string[];
+  selectedTags: number[]; // tag ids
 }
 
 interface DrawerProps {
@@ -13,7 +18,7 @@ interface DrawerProps {
   setSortOrder: (s: string) => void;
   filters: FilterOptions;
   setFilters: (f: FilterOptions) => void;
-  availableTags: string[];
+  availableTags: Tag[];
 }
 
 export function Drawer({ sortOrder, setSortOrder, filters, setFilters, availableTags }: DrawerProps) {
@@ -42,10 +47,10 @@ export function Drawer({ sortOrder, setSortOrder, filters, setFilters, available
     setTempFilters({ ...tempFilters, selectedTypes: newTypes });
   };
 
-  const handleTagToggle = (tag: string) => {
-    const newTags = tempFilters.selectedTags.includes(tag)
-      ? tempFilters.selectedTags.filter(t => t !== tag)
-      : [...tempFilters.selectedTags, tag];
+  const handleTagToggle = (tagId: number) => {
+    const newTags = tempFilters.selectedTags.includes(tagId)
+      ? tempFilters.selectedTags.filter(t => t !== tagId)
+      : [...tempFilters.selectedTags, tagId];
     setTempFilters({ ...tempFilters, selectedTags: newTags });
   };
 
@@ -143,14 +148,14 @@ export function Drawer({ sortOrder, setSortOrder, filters, setFilters, available
             {availableTags.length > 0 ? (
               <div className="space-y-1 max-h-48 overflow-y-auto">
                 {availableTags.map(tag => (
-                  <label key={tag} className="flex items-center">
+                  <label key={tag.id} className="flex items-center">
                     <input
                       type="checkbox"
-                      checked={tempFilters.selectedTags.includes(tag)}
-                      onChange={() => handleTagToggle(tag)}
+                      checked={tempFilters.selectedTags.includes(tag.id)}
+                      onChange={() => handleTagToggle(tag.id)}
                       className="mr-2"
                     />
-                    <span>{tag}</span>
+                    <span>{tag.name}</span>
                   </label>
                 ))}
               </div>
