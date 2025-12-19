@@ -48,7 +48,7 @@ export default function ListPage() {
       setFilters({
         searchText: '',
         selectedRates: [5, 4, 3, 2, 1, 0],
-        selectedTypes: ['video', 'image', 'gif'],
+        selectedTypes: ['video', 'image', 'anime'],
         selectedTags: Array.from(tagSet),
       });
     }
@@ -85,6 +85,11 @@ export default function ListPage() {
 
   // フィルタリングとソート
   const filteredAndSortedList = useMemo(() => {
+    // 空選択の扱い: 評価 or タイプが全未選択なら結果なし
+    if (filters.selectedRates.length === 0 || filters.selectedTypes.length === 0) {
+      return [];
+    }
+
     // まずフィルタリング
     let filtered = [...list];
 

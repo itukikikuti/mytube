@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { HiMenu, HiX } from 'react-icons/hi';
 
 export interface FilterOptions {
@@ -52,6 +52,11 @@ export function Drawer({ sortOrder, setSortOrder, filters, setFilters, available
   const applyFilters = () => {
     setFilters(tempFilters);
   };
+
+  // 親のfiltersが更新されたら一時フィルターも同期（初期表示で全チェック反映）
+  useEffect(() => {
+    setTempFilters(filters);
+  }, [filters]);
 
   return (
     <nav className="fixed top-0 left-0 w-full z-40 bg-white p-4 flex items-center">
@@ -116,7 +121,7 @@ export function Drawer({ sortOrder, setSortOrder, filters, setFilters, available
           <div className="mb-4">
             <label className="block text-sm font-medium mb-2">メディアタイプ</label>
             <div className="space-y-1">
-              {['video', 'image', 'gif'].map(type => (
+              {['video', 'image', 'anime'].map(type => (
                 <label key={type} className="flex items-center">
                   <input
                     type="checkbox"
