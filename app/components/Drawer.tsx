@@ -1,16 +1,56 @@
 import { useState } from 'react';
 import { HiMenu, HiX } from 'react-icons/hi';
 
+export interface FilterOptions {
+  searchText: string;
+  selectedRates: number[];
+  selectedTypes: string[];
+  selectedTags: string[];
+}
+
 interface DrawerProps {
   sortOrder: string;
   setSortOrder: (s: string) => void;
+  filters: FilterOptions;
+  setFilters: (f: FilterOptions) => void;
+  availableTags: string[];
 }
 
-export function Drawer({ sortOrder, setSortOrder }: DrawerProps) {
+export function Drawer({ sortOrder, setSortOrder, filters, setFilters, availableTags }: DrawerProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [tempFilters, setTempFilters] = useState<FilterOptions>(filters);
 
   const toggleDrawer = () => {
     setIsOpen(!isOpen);
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setTempFilters({ ...tempFilters, searchText: e.target.value });
+  };
+
+  const handleRateToggle = (rate: number) => {
+    const newRates = tempFilters.selectedRates.includes(rate)
+      ? tempFilters.selectedRates.filter(r => r !== rate)
+      : [...tempFilters.selectedRates, rate];
+    setTempFilters({ ...tempFilters, selectedRates: newRates });
+  };
+
+  const handleTypeToggle = (type: string) => {
+    const newTypes = tempFilters.selectedTypes.includes(type)
+      ? tempFilters.selectedTypes.filter(t => t !== type)
+      : [...tempFilters.selectedTypes, type];
+    setTempFilters({ ...tempFilters, selectedTypes: newTypes });
+  };
+
+  const handleTagToggle = (tag: string) => {
+    const newTags = tempFilters.selectedTags.includes(tag)
+      ? tempFilters.selectedTags.filter(t => t !== tag)
+      : [...tempFilters.selectedTags, tag];
+    setTempFilters({ ...tempFilters, selectedTags: newTags });
+  };
+
+  const applyFilters = () => {
+    setFilters(tempFilters);
   };
 
   return (
@@ -22,9 +62,22 @@ export function Drawer({ sortOrder, setSortOrder }: DrawerProps) {
       <div className="ml-3 text-lg font-semibold select-none">MyTube</div>
 
       <div
-        className={`fixed top-0 left-0 h-full w-full sm:w-128 bg-white shadow-xl transform transition-transform duration-300 ease-in-out z-20 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        className={`fixed top-0 left-0 h-full w-full sm:w-128 bg-white shadow-xl transform transition-transform duration-300 ease-in-out z-20 overflow-y-auto ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <div className="p-4 pt-16">
+          {/* 検索ボックス */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">ファイル名検索</label>
+            <input
+              type="text"
+              value={tempFilters.searchText}
+              onChange={handleSearchChange}
+              placeholder="タイトルで検索"
+              className="w-full border rounded p-2 text-md"
+            />
+          </div>
+
+          {/* 並び順 */}
           <div className="mb-4">
             <label className="block text-sm font-medium mb-1">並び順</label>
             <select
@@ -39,6 +92,76 @@ export function Drawer({ sortOrder, setSortOrder }: DrawerProps) {
               <option value="most_played">再生回数が多い順</option>
               <option value="highest_rated">評価が高い順</option>
             </select>
+          </div>
+
+          {/* 評価フィルター */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-2">評価</label>
+            <div className="space-y-1">
+              {[5, 4, 3, 2, 1, 0].map(rate => (
+                <label key={rate} className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={tempFilters.selectedRates.includes(rate)}
+                    onChange={() => handleRateToggle(rate)}
+                    className="mr-2"
+                  />
+                  <span>{rate === 0 ? '未評価' : `${rate}★`}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* メディアタイプフィルター */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-2">メディアタイプ</label>
+            <div className="space-y-1">
+              {['video', 'image', 'gif'].map(type => (
+                <label key={type} className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={tempFilters.selectedTypes.includes(type)}
+                    onChange={() => handleTypeToggle(type)}
+                    className="mr-2"
+                  />
+                  <span className="capitalize">
+                    {type === 'video' ? '動画' : type === 'image' ? '画像' : 'GIF'}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* タグフィルター */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-2">タグ</label>
+            {availableTags.length > 0 ? (
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {availableTags.map(tag => (
+                  <label key={tag} className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={tempFilters.selectedTags.includes(tag)}
+                      onChange={() => handleTagToggle(tag)}
+                      className="mr-2"
+                    />
+                    <span>{tag}</span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">タグがありません</p>
+            )}
+          </div>
+
+          {/* 適用ボタン */}
+          <div className="mb-4">
+            <button
+              onClick={applyFilters}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors"
+            >
+              この条件で絞り込む
+            </button>
           </div>
         </div>
       </div>

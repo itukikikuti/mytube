@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { VirtuosoGrid } from 'react-virtuoso';
 import { Card } from './components/Card';
 import { Modal } from './components/Modal';
-import { Drawer } from './components/Drawer';
+import { Drawer, type FilterOptions } from './components/Drawer';
 import type { MediaItem } from './types/media';
 
 export default function ListPage() {
@@ -12,6 +12,12 @@ export default function ListPage() {
   const [sortOrder, setSortOrder] = useState('newest');
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [filters, setFilters] = useState<FilterOptions>({
+    searchText: '',
+    selectedRates: [],
+    selectedTypes: [],
+    selectedTags: [],
+  });
 
   useEffect(() => {
     fetch('/api/data')
@@ -25,6 +31,28 @@ export default function ListPage() {
       })
       .catch(console.error);
   }, []);
+
+  // 初期フィルター設定（データ読み込み後に全選択状態にする）
+  useEffect(() => {
+    if (list.length > 0 && filters.selectedRates.length === 0) {
+      const tagSet = new Set<string>();
+      list.forEach(item => {
+        if (item.tags) {
+          item.tags.split(',').forEach(tag => {
+            const trimmed = tag.trim();
+            if (trimmed) tagSet.add(trimmed);
+          });
+        }
+      });
+      
+      setFilters({
+        searchText: '',
+        selectedRates: [5, 4, 3, 2, 1, 0],
+        selectedTypes: ['video', 'image', 'gif'],
+        selectedTags: Array.from(tagSet),
+      });
+    }
+  }, [list]);
 
   // helper to fetch thumbs for a media id
   const fetchThumbs = async (mediaId: number): Promise<string[]> => {
@@ -41,23 +69,74 @@ export default function ListPage() {
     }
   };
 
-  const sortedList = useMemo(() => {
-    const copy = [...list];
+  // 利用可能なタグを抽出
+  const availableTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    list.forEach(item => {
+      if (item.tags) {
+        item.tags.split(',').forEach(tag => {
+          const trimmed = tag.trim();
+          if (trimmed) tagSet.add(trimmed);
+        });
+      }
+    });
+    return Array.from(tagSet).sort();
+  }, [list]);
+
+  // フィルタリングとソート
+  const filteredAndSortedList = useMemo(() => {
+    // まずフィルタリング
+    let filtered = [...list];
+
+    // ファイル名検索
+    if (filters.searchText) {
+      const searchLower = filters.searchText.toLowerCase();
+      filtered = filtered.filter(item => 
+        item.title.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // 評価フィルター
+    if (filters.selectedRates.length > 0) {
+      filtered = filtered.filter(item => 
+        filters.selectedRates.includes(item.rate)
+      );
+    }
+
+    // メディアタイプフィルター
+    if (filters.selectedTypes.length > 0) {
+      filtered = filtered.filter(item => 
+        filters.selectedTypes.includes(item.type)
+      );
+    }
+
+    // タグフィルター
+    if (filters.selectedTags.length > 0) {
+      filtered = filtered.filter(item => {
+        if (!item.tags) return false;
+        const itemTags = item.tags.split(',').map(t => t.trim());
+        return filters.selectedTags.some(selectedTag => 
+          itemTags.includes(selectedTag)
+        );
+      });
+    }
+
+    // 次にソート
     switch (sortOrder) {
       case 'newest':
-        return copy.sort((a, b) => b.date - a.date);
+        return filtered.sort((a, b) => b.date - a.date);
       case 'oldest':
-        return copy.sort((a, b) => a.date - b.date);
+        return filtered.sort((a, b) => a.date - b.date);
       case 'most_played':
-        return copy.sort((a, b) => (b.play_count || 0) - (a.play_count || 0));
+        return filtered.sort((a, b) => (b.play_count || 0) - (a.play_count || 0));
       case 'highest_rated':
-        return copy.sort((a, b) => b.rate - a.rate);
+        return filtered.sort((a, b) => b.rate - a.rate);
       case 'last_played':
-        return copy.sort((a, b) => (b.last_played || 0) - (a.last_played || 0));
+        return filtered.sort((a, b) => (b.last_played || 0) - (a.last_played || 0));
       default:
-        return copy.sort((a, b) => b.date - a.date);
+        return filtered.sort((a, b) => b.date - a.date);
     }
-  }, [list, sortOrder]);
+  }, [list, sortOrder, filters]);
 
   const openModal = (item: MediaItem) => {
     (async () => {
@@ -161,15 +240,21 @@ export default function ListPage() {
   return (
     <>
       <header>
-        <Drawer sortOrder={sortOrder} setSortOrder={setSortOrder} />
+        <Drawer 
+          sortOrder={sortOrder} 
+          setSortOrder={setSortOrder}
+          filters={filters}
+          setFilters={setFilters}
+          availableTags={availableTags}
+        />
       </header>
       <div className="pt-15">
         <VirtuosoGrid
           style={{ height: 'calc(100vh - var(--spacing) * 15)' }}
-          totalCount={sortedList.length}
+          totalCount={filteredAndSortedList.length}
           listClassName="container mx-auto p-5 grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3"
           itemContent={(index) => {
-            const media = sortedList[index];
+            const media = filteredAndSortedList[index];
             if (!media) return <div />;
             return (
               <div key={media.id}>
