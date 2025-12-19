@@ -58,6 +58,13 @@ const Card = ({ media }: CardProps) => {
     };
   }, [media?.id]);
 
+  // --- sync thumbs with media.thumbs changes (for real-time updates) ---
+  useEffect(() => {
+    if (media.thumbs && media.thumbs.length !== thumbs.length) {
+      setThumbs(media.thumbs);
+    }
+  }, [media.thumbs]);
+
   // --- autoplay interval for thumbs, depends on thumbs.length only ---
   useEffect(() => {
     if (thumbs && thumbs.length > 1) {
@@ -145,9 +152,10 @@ interface ModalProps {
   onAddThumb?: (thumb: string) => void;
   onRemoveThumb?: (index: number) => void;
   onRate?: (rating: number) => void;
+  onOpenLocal: (item: MediaItem) => void;
 }
 
-const Modal = ({ item, onClose, onAddThumb, onRemoveThumb, onRate }: ModalProps) => {
+const Modal = ({ item, onClose, onAddThumb, onRemoveThumb, onRate, onOpenLocal }: ModalProps) => {
   useEffect(() => {
     document.body.style.overflow = 'hidden';
 
@@ -286,25 +294,10 @@ const Modal = ({ item, onClose, onAddThumb, onRemoveThumb, onRate }: ModalProps)
             </div>
             <button
               className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-300 border border-transparent"
-              onClick={async (e) => {
+              onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
-                if (!item) return;
-
-                const confirmed = window.confirm(`${item.title} をローカルで開きますか？`);
-                if (!confirmed) return;
-
-                const href = `mytube:N:\\Videos\\${item.title}`;
-                try {
-                  await fetch('/api/history', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ media: item.id, date: Math.floor(Date.now() / 1000) }),
-                  });
-                } catch (err) {
-                  console.error('履歴の記録に失敗しました', err);
-                }
-                window.location.href = href;
+                if (item) onOpenLocal(item);
               }}
               aria-label="開く（ローカル）"
               title="開く（ローカル）"
@@ -420,7 +413,12 @@ export default function ListPage() {
       setIsModalOpen(true);
     })();
   }
-  const closeModal = () => {
+  const closeModal = async () => {
+    // Refresh thumbs for the selected media before closing
+    if (selectedMedia) {
+      const thumbs = await fetchThumbs(selectedMedia.id);
+      setList(prev => prev.map(m => m.id === selectedMedia.id ? { ...m, thumbs } : m));
+    }
     setIsModalOpen(false);
     setSelectedMedia(null);
   };
@@ -485,6 +483,28 @@ export default function ListPage() {
     })();
   };
 
+  const openLocally = async (item: MediaItem) => {
+    const confirmed = window.confirm(`${item.title} をローカルで開きますか？`);
+    if (!confirmed) return;
+
+    const now = Math.floor(Date.now() / 1000);
+    const href = `mytube:N:\\Videos\\${item.title}`;
+
+    try {
+      await fetch('/api/history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ media: item.id, date: now }),
+      });
+      setList(prev => prev.map(m => m.id === item.id ? { ...m, play_count: (m.play_count || 0) + 1, last_played: now } : m));
+      setSelectedMedia(prev => (prev && prev.id === item.id) ? { ...prev, play_count: (prev.play_count || 0) + 1, last_played: now } : prev);
+    } catch (err) {
+      console.error('履歴の記録に失敗しました', err);
+    }
+
+    window.location.href = href;
+  };
+
   return (
     <>
       <header>
@@ -515,6 +535,7 @@ export default function ListPage() {
           onAddThumb={addThumbToMedia}
           onRemoveThumb={removeThumbFromMedia}
           onRate={(r) => { if (selectedMedia) rateMedia(selectedMedia.id, r); }}
+          onOpenLocal={openLocally}
         />
       )}
     </>
