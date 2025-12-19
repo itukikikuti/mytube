@@ -214,6 +214,7 @@ const Modal = ({ item, onClose, onAddThumb, onRemoveThumb, onRate }: ModalProps)
               className="w-full h-full object-contain"
               controls
               autoPlay
+              loop
             >
               <source src={`/api/stream-video?filename=${item ? encodeURIComponent(item.title) : ''}`} type="video/mp4" />
               お使いのブラウザは video をサポートしていません。
