@@ -3,6 +3,7 @@ import path from 'path';
 import { NextResponse } from 'next/server';
 
 const EXTERNAL_VIDEO_DIR = '/app/nas/Videos';
+const CHUNK_SIZE = 1024 * 1024 * 10; // 10MB chunks
 
 export async function GET(request) {
   const filename = request.nextUrl.searchParams.get('filename');
@@ -33,14 +34,17 @@ export async function GET(request) {
       'Accept-Ranges': 'bytes',
       'Content-Length': chunkSize,
       'Content-Type': 'video/mp4',
+      'Cache-Control': 'public, max-age=3600',
     };
 
     return new Response(stream, { status: 206, headers });
   } else {
-    const stream = fs.createReadStream(filePath);
+    const stream = fs.createReadStream(filePath, { highWaterMark: CHUNK_SIZE });
     const headers = {
       'Content-Length': fileSize,
       'Content-Type': 'video/mp4',
+      'Accept-Ranges': 'bytes',
+      'Cache-Control': 'public, max-age=3600',
     };
     return new Response(stream, { status: 200, headers });
   }
