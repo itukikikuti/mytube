@@ -1,0 +1,22 @@
+version: '3.8'
+services:
+  nextjs:
+    build:
+      context: https://github.com/itukikikuti/mytube.git#web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DB_PATH=/data/db.sqlite
+      - NODE_OPTIONS=--max-old-space-size=2048
+    restart: always
+    volumes:
+      - /mnt/nas:/app/nas
+      - /home/ubuntu/mytube/data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
