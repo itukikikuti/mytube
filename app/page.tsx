@@ -276,7 +276,7 @@ export default function ListPage() {
 
   return (
     <>
-      <header>
+      <div className="min-h-screen flex flex-col sm:flex-row">
         <Drawer 
           sortOrder={sortOrder} 
           setSortOrder={setSortOrder}
@@ -284,10 +284,9 @@ export default function ListPage() {
           setFilters={setFilters}
           availableTags={availableTags}
         />
-      </header>
-      <div className="pt-15">
+      <main className="flex-1 min-w-0">
         <VirtuosoGrid
-          style={{ height: 'calc(100vh - var(--spacing) * 15)' }}
+          style={{ height: '100vh' }}
           totalCount={filteredAndSortedList.length}
           listClassName="container mx-auto p-5 grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3"
           itemContent={(index) => {
@@ -302,6 +301,7 @@ export default function ListPage() {
             );
           }}
         />
+      </main>
       </div>
       {isModalOpen && (
         <Modal

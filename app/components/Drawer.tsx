@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { HiMenu, HiX } from 'react-icons/hi';
 
 export interface Tag {
   id: number;
@@ -22,12 +21,7 @@ interface DrawerProps {
 }
 
 export function Drawer({ sortOrder, setSortOrder, filters, setFilters, availableTags }: DrawerProps) {
-  const [isOpen, setIsOpen] = useState(false);
   const [tempFilters, setTempFilters] = useState<FilterOptions>(filters);
-
-  const toggleDrawer = () => {
-    setIsOpen(!isOpen);
-  };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTempFilters({ ...tempFilters, searchText: e.target.value });
@@ -64,17 +58,9 @@ export function Drawer({ sortOrder, setSortOrder, filters, setFilters, available
   }, [filters]);
 
   return (
-    <nav className="fixed top-0 left-0 w-full z-40 bg-white p-4 flex items-center">
-      <button className="relative z-50 focus:outline-none" onClick={toggleDrawer} aria-label="Toggle Menu">
-        {isOpen ? <HiX className="w-6 h-6" /> : <HiMenu className="w-6 h-6" />}
-      </button>
-
-      <div className="ml-3 text-lg font-semibold select-none">MyTube</div>
-
-      <div
-        className={`fixed top-0 left-0 h-full w-full sm:w-128 bg-white shadow-xl transform transition-transform duration-300 ease-in-out z-20 overflow-y-auto ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
-      >
-        <div className="p-4 pt-16">
+    <aside className="w-full sm:w-64 sm:h-screen bg-white sm:shadow-xl overflow-y-auto sm:sticky sm:top-0">
+      <div className="p-4">
+        <div className="text-lg font-semibold select-none mb-4">MyTube</div>
           {/* 検索ボックス */}
           <div className="mb-4">
             <label className="block text-sm font-medium mb-1">ファイル名検索</label>
@@ -173,10 +159,7 @@ export function Drawer({ sortOrder, setSortOrder, filters, setFilters, available
               この条件で絞り込む
             </button>
           </div>
-        </div>
       </div>
-
-      {isOpen && <div className="fixed inset-0 z-10" onClick={toggleDrawer}></div>}
-    </nav>
+    </aside>
   );
 }
