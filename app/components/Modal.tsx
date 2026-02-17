@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { HiX, HiPlus, HiExternalLink } from 'react-icons/hi';
 import type { MediaItem } from '../types/media';
 
@@ -21,6 +21,68 @@ export function Modal({ item, onClose, onAddThumb, onRemoveThumb, onRate, onOpen
   }, []);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const playerRef = useRef<HTMLDivElement | null>(null);
+  const hideControlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [controlsVisible, setControlsVisible] = useState(true);
+
+  const clearHideControlsTimer = () => {
+    if (hideControlsTimerRef.current) {
+      clearTimeout(hideControlsTimerRef.current);
+      hideControlsTimerRef.current = null;
+    }
+  };
+
+  const showControlsTemporarily = () => {
+    setControlsVisible(true);
+    clearHideControlsTimer();
+    if (isPlaying) {
+      hideControlsTimerRef.current = setTimeout(() => {
+        setControlsVisible(false);
+      }, 1800);
+    }
+  };
+
+  const formatTime = (value: number) => {
+    if (!isFinite(value) || value < 0) return '0:00';
+    const minutes = Math.floor(value / 60);
+    const seconds = Math.floor(value % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const togglePlayPause = () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (video.paused) {
+      void video.play();
+    } else {
+      video.pause();
+    }
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const nextTime = Number(e.target.value);
+    video.currentTime = nextTime;
+    setCurrentTime(nextTime);
+  };
+
+  const toggleFullScreen = async () => {
+    const player = playerRef.current;
+    if (!player) return;
+
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+      return;
+    }
+
+    await player.requestFullscreen();
+  };
 
   const onWheel2 = (e: React.WheelEvent<HTMLDivElement>) => {
     const video = videoRef.current;
@@ -56,6 +118,52 @@ export function Modal({ item, onClose, onAddThumb, onRemoveThumb, onRate, onOpen
     }
   };
 
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const onTimeUpdate = () => setCurrentTime(video.currentTime);
+    const onLoadedMetadata = () => setDuration(video.duration || 0);
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => setIsPlaying(false);
+
+    onLoadedMetadata();
+    setIsPlaying(!video.paused);
+    setCurrentTime(video.currentTime || 0);
+
+    video.addEventListener('timeupdate', onTimeUpdate);
+    video.addEventListener('loadedmetadata', onLoadedMetadata);
+    video.addEventListener('play', onPlay);
+    video.addEventListener('pause', onPause);
+
+    return () => {
+      video.removeEventListener('timeupdate', onTimeUpdate);
+      video.removeEventListener('loadedmetadata', onLoadedMetadata);
+      video.removeEventListener('play', onPlay);
+      video.removeEventListener('pause', onPause);
+    };
+  }, [item?.title]);
+
+  useEffect(() => {
+    if (!isPlaying) {
+      setControlsVisible(true);
+      clearHideControlsTimer();
+      return;
+    }
+
+    showControlsTemporarily();
+
+    return () => {
+      clearHideControlsTimer();
+    };
+  }, [isPlaying]);
+
+  useEffect(() => {
+    return () => {
+      clearHideControlsTimer();
+    };
+  }, []);
+
   return (
     <div className="fixed inset-0 flex justify-center items-center z-50" onClick={onClose} onWheel={onWheel2}>
       <button
@@ -65,13 +173,18 @@ export function Modal({ item, onClose, onAddThumb, onRemoveThumb, onRate, onOpen
         style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}
       ><HiX className="w-5 h-5" /></button>
       <div className="bg-white w-screen h-screen overflow-hidden flex flex-col relative" onClick={(e) => e.stopPropagation()}>
-        <div className="w-full h-1/2 sm:h-8/10 bg-black flex-shrink-0">
+        <div
+          ref={playerRef}
+          className="w-full h-1/2 sm:h-8/10 bg-black flex-shrink-0 relative"
+          onClick={(e) => e.stopPropagation()}
+          onMouseMove={showControlsTemporarily}
+          onTouchStart={showControlsTemporarily}
+        >
           <div className="w-full h-full">
             <video
               key={item?.title}
               ref={videoRef}
               className="w-full h-full object-contain"
-              controls
               autoPlay
               loop
             >
@@ -80,6 +193,37 @@ export function Modal({ item, onClose, onAddThumb, onRemoveThumb, onRate, onOpen
               お使いのブラウザは video をサポートしていません。
             </video>
           </div>
+          <div
+            className={`absolute inset-x-0 bottom-3 z-20 px-4 flex items-center justify-between transition-opacity duration-200 ${controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'} pointer-events-none`}
+          >
+            <button
+              type="button"
+              onClick={togglePlayPause}
+              className="pointer-events-auto px-3 py-1.5 rounded bg-black/55 text-white hover:bg-black/70 text-sm font-medium"
+            >
+              {isPlaying ? '停止' : '再生'}
+            </button>
+            <span className="text-sm text-white bg-black/55 px-2 py-1 rounded pointer-events-none">
+              {formatTime(currentTime)} / {formatTime(duration)}
+            </span>
+            <button
+              type="button"
+              onClick={() => { void toggleFullScreen(); }}
+              className="pointer-events-auto px-3 py-1.5 rounded bg-black/55 text-white hover:bg-black/70 text-sm font-medium"
+            >
+              全画面
+            </button>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={duration || 0}
+            step={0.1}
+            value={Math.min(currentTime, duration || 0)}
+            onChange={handleSeek}
+            className={`absolute bottom-0 left-0 right-0 z-20 w-full h-1 appearance-none accent-white bg-white/35 transition-opacity duration-200 ${controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+            aria-label="シークバー"
+          />
         </div>
         <div className="p-5 flex-1 overflow-auto">
           <div className="flex items-start justify-between">
