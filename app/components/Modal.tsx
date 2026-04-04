@@ -230,7 +230,7 @@ export function Modal({ item, onClose, onAddThumb, onRemoveThumb, onRate, onOpen
             <div>
               <h2 className="text-xl font-bold">{item?.title}</h2>
               <div className="text-sm text-gray-500 mt-1">
-                {item ? `${item.play_count || 0} 回視聴・${new Date(item.date * 1000).toLocaleDateString()}` : ''}
+                {item ? `${item.play_count || 0} 回視聴・${new Date(item.date * 1000).toLocaleString('ja-JP')}` : ''}
               </div>
               {item && (
                 <div className="mt-2">
