@@ -188,8 +188,7 @@ export function Modal({ item, onClose, onAddThumb, onRemoveThumb, onRate, onOpen
               autoPlay
               loop
             >
-              <source src={`/videos/${item ? encodeURIComponent(item.title) : ''}`} type="video/mp4" />
-              {/* <source src={`/api/stream-video?filename=${item ? encodeURIComponent(item.title) : ''}`} type="video/mp4" /> */}
+              <source src={`/api/stream-video?filename=${item ? encodeURIComponent(item.title) : ''}`} type="video/mp4" />
               お使いのブラウザは video をサポートしていません。
             </video>
           </div>

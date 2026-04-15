@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { NextResponse } from 'next/server';
 
-const EXTERNAL_VIDEO_DIR = '/app/nas/Videos';
+const MEDIA_DIR = process.env.MEDIA_DIR || path.resolve(process.cwd(), 'public/videos');
 
 export async function GET(request) {
   const filename = request.nextUrl.searchParams.get('filename');
@@ -11,7 +11,7 @@ export async function GET(request) {
   }
 
   const safeName = path.basename(filename);
-  const filePath = path.join(EXTERNAL_VIDEO_DIR, safeName);
+  const filePath = path.join(MEDIA_DIR, safeName);
 
   if (!fs.existsSync(filePath) || !filePath.toLowerCase().endsWith('.mp4')) {
     return NextResponse.json({ message: 'File not found or unsupported' }, { status: 404 });
