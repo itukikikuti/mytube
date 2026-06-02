@@ -2,7 +2,16 @@ import { useMemo, useState, useEffect } from 'react'
 
 const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
 
-function toApiUrl(pathname) {
+type Video = {
+  id: string
+  name: string
+}
+
+type VideosResponse = {
+  videos?: Video[]
+}
+
+function toApiUrl(pathname: string): string {
   if (!apiBase) {
     return pathname
   }
@@ -15,7 +24,7 @@ function toApiUrl(pathname) {
 }
 
 function App() {
-  const [videos, setVideos] = useState([])
+  const [videos, setVideos] = useState<Video[]>([])
   const [selectedId, setSelectedId] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -33,7 +42,7 @@ function App() {
           throw new Error(`Failed to load videos: HTTP ${response.status}`)
         }
 
-        const data = await response.json()
+        const data = (await response.json()) as VideosResponse
         if (!active) return
 
         const list = Array.isArray(data.videos) ? data.videos : []

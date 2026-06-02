@@ -41,6 +41,14 @@ npm install
 npm run dev
 ```
 
+品質チェックとビルドは次を使います。
+
+```bash
+npm run lint
+npm run typecheck
+npm run build
+```
+
 ### frontend
 
 ```bash
