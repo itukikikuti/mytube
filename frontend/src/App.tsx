@@ -1,6 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
-
-const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+import { toApiUrl } from './lib/toApiUrl'
 
 type Video = {
   id: string
@@ -9,18 +8,6 @@ type Video = {
 
 type VideosResponse = {
   videos?: Video[]
-}
-
-function toApiUrl(pathname: string): string {
-  if (!apiBase) {
-    return pathname
-  }
-
-  if (apiBase.endsWith('/api') && pathname.startsWith('/api/')) {
-    return `${apiBase}${pathname.slice(4)}`
-  }
-
-  return `${apiBase}${pathname}`
 }
 
 function App() {
