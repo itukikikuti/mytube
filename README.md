@@ -1,6 +1,6 @@
 ## 起動手順
 
-1. docker-compose.yml のボリューム設定を自分の環境に合わせる。
+### 1. docker-compose.yml のボリューム設定を自分の環境に合わせる。
 
 ```yaml
 volumes:
@@ -14,22 +14,15 @@ volumes:
   - D:/nas/Videos:/videos:ro
 ```
 
-2. ルートで起動する。
+### 2. ルートで起動する。
 
 ```bash
 docker compose up --build
 ```
 
-3. ブラウザで開く。
+### 3. ブラウザで開く。
 
-- フロント: http://localhost:5173
-- バックエンドAPI: http://localhost:8081/api/videos（直接確認用）
-
-別サーバーで公開している場合は、そのサーバーIPでアクセスします。
-
-- 例: http://10.0.0.99:5173
-
-この構成ではフロントが相対パス /api を使い、Nginx経由でbackendへ内部転送されます。
+http://localhost:5173
 
 ## 開発モード（ローカル実行）
 
@@ -41,14 +34,6 @@ npm install
 npm run dev
 ```
 
-品質チェックとビルドは次を使います。
-
-```bash
-npm run lint
-npm run typecheck
-npm run build
-```
-
 ### frontend
 
 ```bash
@@ -56,7 +41,3 @@ cd frontend
 npm install
 npm run dev
 ```
-
-ローカル開発ではフロントが `VITE_API_BASE_URL` を使ってバックエンドへ直接アクセスします（`frontend/.env.development` で `http://localhost:8080` を既定設定）。
-
-バックエンドはCORSを有効化しているため、上記構成でブラウザから直接APIへ接続できます。
