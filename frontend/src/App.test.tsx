@@ -20,21 +20,21 @@ function mockFetchFailure(message = 'network error') {
 }
 
 describe('toApiUrl', () => {
-  test('uses the pathname when there is no api base', () => {
+  test('APIベースがない場合はパス名をそのまま使う', () => {
     expect(toApiUrl('/api/videos', '')).toBe('/api/videos')
   })
 
-  test('appends a non-api base directly', () => {
+  test('ベースURLが/apiで終わらない場合はそのまま連結する', () => {
     expect(toApiUrl('/api/videos', 'http://localhost:8080')).toBe('http://localhost:8080/api/videos')
   })
 
-  test('avoids duplicating api when the base already ends with /api', () => {
+  test('ベースURLが/apiで終わる場合はapiを重複させない', () => {
     expect(toApiUrl('/api/videos', 'https://example.test/api')).toBe('https://example.test/api/videos')
   })
 })
 
 describe('App', () => {
-  test('shows loading, then renders a list and selects the first video', async () => {
+  test('読み込み表示の後に一覧を表示し、先頭動画を選択状態にする', async () => {
     mockFetchOnce({
       videos: [
         { id: 'Y2xpcC5tcDQ', name: 'clip.mp4' },
@@ -55,7 +55,7 @@ describe('App', () => {
     expect(video?.getAttribute('src')).toBe('/api/videos/Y2xpcC5tcDQ/stream')
   })
 
-  test('shows an error message when loading fails', async () => {
+  test('読み込み失敗時にエラーメッセージを表示する', async () => {
     mockFetchFailure('request failed')
 
     render(<App />)
@@ -63,7 +63,7 @@ describe('App', () => {
     expect(await screen.findByText(/request failed/)).toBeTruthy()
   })
 
-  test('shows the empty state when no videos exist', async () => {
+  test('動画が存在しない場合は空状態を表示する', async () => {
     mockFetchOnce({ videos: [] })
 
     render(<App />)
@@ -73,7 +73,7 @@ describe('App', () => {
     expect(screen.getByText('No video selected.')).toBeTruthy()
   })
 
-  test('updates the selected video and player source when a different video is chosen', async () => {
+  test('別の動画を選ぶと選択中動画とプレーヤーの再生元を更新する', async () => {
     mockFetchOnce({
       videos: [
         { id: 'YWxwaGEubXA0', name: 'alpha.mp4' },

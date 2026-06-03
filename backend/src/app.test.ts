@@ -31,7 +31,7 @@ async function closeServer(server: Server) {
   await new Promise<void>((resolve) => server.close(() => resolve()))
 }
 
-test('backend helpers cover encoding, file filtering, listing, and directory validation', () => {
+test('バックエンドヘルパーでエンコード・拡張子判定・一覧取得・ディレクトリ検証を確認する', () => {
   const tempDir = createTempDir()
   const nestedDir = path.join(tempDir, 'nested')
   const missingDir = path.join(tempDir, 'missing')
@@ -62,7 +62,7 @@ test('backend helpers cover encoding, file filtering, listing, and directory val
   }
 })
 
-test('backend routes return lists, full streams, ranged streams, and error states', async () => {
+test('バックエンドルートが一覧取得・全体配信・範囲配信・各種エラーを返すことを確認する', async () => {
   const tempDir = createTempDir()
   const serverState: { server: Server | null } = { server: null }
 
@@ -123,7 +123,7 @@ test('backend routes return lists, full streams, ranged streams, and error state
   }
 })
 
-test('parseRange still rejects invalid combinations in helper coverage', () => {
+test('parseRangeが不正な組み合わせを拒否することを確認する', () => {
   assert.equal(parseRange('bytes=10-5', 100), null)
   assert.equal(parseRange('bytes=200-300', 100), null)
   assert.equal(parseRange('garbage', 100), null)
