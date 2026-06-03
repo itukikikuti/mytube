@@ -57,4 +57,6 @@ npm install
 npm run dev
 ```
 
-Viteのプロキシで /api は http://localhost:8080 に転送されます（ローカル開発時）。
+ローカル開発ではフロントが `VITE_API_BASE_URL` を使ってバックエンドへ直接アクセスします（`frontend/.env.development` で `http://localhost:8080` を既定設定）。
+
+バックエンドはCORSを有効化しているため、上記構成でブラウザから直接APIへ接続できます。

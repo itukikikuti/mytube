@@ -1,4 +1,5 @@
 import express, { type Express, type Request, type Response } from 'express'
+import cors from 'cors'
 import fs from 'node:fs'
 import path from 'node:path'
 
@@ -81,6 +82,7 @@ export function parseRange(rangeHeader: string, fileSize: number): ByteRange | n
 
 export function createApp(videoDir = defaultVideoDir): Express {
   const app = express()
+  app.use(cors())
 
   app.get('/api/videos', (req, res) => {
     res.json({ videos: listVideos(videoDir) })
