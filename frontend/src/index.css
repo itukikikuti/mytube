@@ -62,7 +62,6 @@ img {
   border: 1px solid var(--border);
   border-radius: 28px;
   box-shadow: var(--shadow);
-  backdrop-filter: blur(16px);
 }
 
 .sidebar,
@@ -158,12 +157,11 @@ h3 {
   cursor: pointer;
   color: var(--text);
   background: rgba(255, 255, 255, 0.04);
-  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+  transition: border-color 120ms ease, background-color 120ms ease;
 }
 
 .video-item:hover,
 .video-item:focus-visible {
-  transform: translateY(-1px);
   border-color: rgba(143, 211, 255, 0.45);
   background: rgba(143, 211, 255, 0.08);
 }
@@ -270,7 +268,6 @@ h3 {
   display: grid;
   place-items: center;
   background: rgba(4, 7, 11, 0.78);
-  backdrop-filter: blur(12px);
 }
 
 .video-modal-card {
