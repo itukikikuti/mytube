@@ -2,7 +2,6 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
 import App from './App'
-import { toApiUrl } from './lib/toApiUrl'
 
 function mockFetchOnce(body: unknown, status = 200) {
   const response = new Response(JSON.stringify(body), {
@@ -18,20 +17,6 @@ function mockFetchOnce(body: unknown, status = 200) {
 function mockFetchFailure(message = 'network error') {
   vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error(message)))
 }
-
-describe('toApiUrl', () => {
-  test('APIベースがない場合はパス名をそのまま使う', () => {
-    expect(toApiUrl('/api/videos', '')).toBe('/api/videos')
-  })
-
-  test('ベースURLが/apiで終わらない場合はそのまま連結する', () => {
-    expect(toApiUrl('/api/videos', 'http://localhost:8080')).toBe('http://localhost:8080/api/videos')
-  })
-
-  test('ベースURLが/apiで終わる場合はapiを重複させない', () => {
-    expect(toApiUrl('/api/videos', 'https://example.test/api')).toBe('https://example.test/api/videos')
-  })
-})
 
 describe('App', () => {
   test('読み込み表示の後に一覧を表示し、先頭動画を選択状態にする', async () => {

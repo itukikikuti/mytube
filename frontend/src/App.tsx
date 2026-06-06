@@ -1,5 +1,4 @@
 import { useMemo, useState, useEffect } from 'react'
-import { toApiUrl } from './lib/toApiUrl'
 
 type Video = {
   id: string
@@ -24,7 +23,7 @@ function App() {
       setError('')
 
       try {
-        const response = await fetch(toApiUrl('/api/videos'))
+        const response = await fetch('/api/videos')
         if (!response.ok) {
           throw new Error(`Failed to load videos: HTTP ${response.status}`)
         }
@@ -102,7 +101,7 @@ function App() {
               className="video-player"
               controls
               preload="metadata"
-              src={toApiUrl(`/api/videos/${encodeURIComponent(selectedVideo.id)}/stream`)}
+              src={`/api/videos/${encodeURIComponent(selectedVideo.id)}/stream`}
             >
               Your browser does not support video playback.
             </video>
