@@ -7,26 +7,20 @@ volumes:
   - /mnt/nas/Videos:/videos:ro
 ```
 
-Windows環境では次のような形式でも指定できます。
-
-```yaml
-volumes:
-  - D:/nas/Videos:/videos:ro
-```
-
-### 2. ルートで起動する。
+### 2. ルートで起動
 
 ```bash
 docker compose up --build
 ```
 
-### 3. ブラウザで開く。
+### 3. アクセス先
 
-http://localhost:5173
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:8080/api/videos
 
-## 開発モード（ローカル実行）
+## 開発モード（ローカル）
 
-### backend
+backend:
 
 ```bash
 cd backend
@@ -34,7 +28,7 @@ npm install
 npm run dev
 ```
 
-### frontend
+frontend:
 
 ```bash
 cd frontend
