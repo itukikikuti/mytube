@@ -1,38 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
-
-:root {
-  --bg-0: #eef5f1;
-  --bg-1: #dce9e2;
-  --panel: #fdfdfb;
-  --panel-soft: #f6faf7;
-  --text: #1d2a22;
-  --muted: #4f5f55;
-  --line: #cedad3;
-  --accent: #0f766e;
-  --accent-soft: #def1ee;
-
-  font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
-  font-size: 16px;
-  line-height: 1.45;
-  color: var(--text);
-  background-color: var(--bg-0);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  min-height: 100vh;
-  background:
-    radial-gradient(circle at 20% 10%, #ffffff 0%, transparent 36%),
-    radial-gradient(circle at 90% 90%, #cfe7dd 0%, transparent 42%),
-    linear-gradient(145deg, var(--bg-0), var(--bg-1));
 }
 
 #root {
@@ -43,14 +14,6 @@ body {
 .layout {
   max-width: 540px;
   margin: 0 auto;
-  display: block;
-}
-
-.panel {
-  border: 1px solid var(--line);
-  border-radius: 20px;
-  background: var(--panel);
-  box-shadow: 0 10px 24px rgba(17, 43, 27, 0.08);
 }
 
 .sidebar {
@@ -64,23 +27,10 @@ body {
   margin-bottom: 0.9rem;
 }
 
-.eyebrow {
-  font-family: 'IBM Plex Mono', Consolas, monospace;
-  font-size: 0.78rem;
-  letter-spacing: 0.16em;
-  color: var(--muted);
-  margin: 0;
-}
-
 h1,
 h2,
 p {
   margin: 0;
-}
-
-h1 {
-  font-size: 1.75rem;
-  margin-top: 0.3rem;
 }
 
 .video-list {
@@ -95,52 +45,23 @@ h1 {
 
 .video-item {
   width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--panel-soft);
-  color: var(--text);
   text-align: left;
   padding: 0.7rem 0.8rem;
   cursor: pointer;
-  transition: transform 120ms ease, border-color 120ms ease;
-}
-
-.video-item:hover {
-  transform: translateY(-1px);
-  border-color: #9ec0b0;
-}
-
-.video-item.selected {
-  border-color: var(--accent);
-  background: var(--accent-soft);
 }
 
 .video-name {
-  font-weight: 500;
   word-break: break-all;
-}
-
-.state {
-  color: var(--muted);
-  padding: 0.5rem 0.1rem;
-}
-
-.state.error {
-  color: #a52020;
 }
 
 .video-player {
   width: 100%;
   height: 100%;
-  border-radius: 10px;
-  background: #000;
 }
 
 .video-modal {
   position: fixed;
   inset: 0;
-  z-index: 1000;
-  background: rgba(4, 9, 8, 0.96);
   display: grid;
   grid-template-rows: auto 1fr;
   padding: 1rem;
@@ -158,23 +79,12 @@ h1 {
   width: min(100%, 1600px);
   height: min(100%, 92vh);
   max-height: 92vh;
-  border-radius: 12px;
-  border: 1px solid #1d2a22;
 }
 
 .modal-close {
   justify-self: end;
-  border: 1px solid #3f5a4c;
-  background: #14231d;
-  color: #f1f6f3;
-  border-radius: 999px;
   padding: 0.55rem 0.95rem;
-  font-weight: 600;
   cursor: pointer;
-}
-
-.modal-close:hover {
-  border-color: #79a58f;
 }
 
 body.modal-open {
