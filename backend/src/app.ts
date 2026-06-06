@@ -2,10 +2,48 @@ import express, { type Express, type Request, type Response } from 'express'
 import cors from 'cors'
 import fs from 'node:fs'
 import path from 'node:path'
+import { defaultDbPath, loadLibrary } from './db'
 
 export type Video = {
   id: string
   name: string
+}
+
+export type MediaVideo = {
+  id: string
+  title: string
+  date: number
+  type: string
+  duration: number
+  rate: number
+  tags: string[]
+  thumbs: string[]
+}
+
+export type TagItem = {
+  id: number
+  name: string
+}
+
+export type HistoryItem = {
+  id: number
+  media: number
+  mediaTitle: string
+  date: number
+}
+
+export type VideosResponse = {
+  videos: MediaVideo[]
+  tags: TagItem[]
+  history: HistoryItem[]
+}
+
+function emptyVideosResponse(): VideosResponse {
+  return {
+    videos: [],
+    tags: [],
+    history: [],
+  }
 }
 
 export type ByteRange = {
@@ -15,6 +53,7 @@ export type ByteRange = {
 
 export const DEFAULT_PORT = 8080
 export const defaultVideoDir = process.env.VIDEO_DIR || path.resolve(__dirname, '../videos')
+export const defaultDatabasePath = defaultDbPath
 
 export const isAllowedVideoFile = (fileName: string): boolean => path.extname(fileName).toLowerCase() === '.mp4'
 export const encodeId = (fileName: string): string => Buffer.from(fileName, 'utf8').toString('base64url')
@@ -80,12 +119,36 @@ export function parseRange(rangeHeader: string, fileSize: number): ByteRange | n
   return { start, end }
 }
 
-export function createApp(videoDir = defaultVideoDir): Express {
+export function createApp(videoDir = defaultVideoDir, dbPath = defaultDatabasePath): Express {
   const app = express()
   app.use(cors())
 
-  app.get('/api/videos', (req, res) => {
-    res.json({ videos: listVideos(videoDir) })
+  app.get('/api/videos', (_req, res) => {
+    let payload: VideosResponse = emptyVideosResponse()
+
+    try {
+      const library = loadLibrary(dbPath)
+
+      payload = {
+        videos: library.videos.map((video) => ({
+          id: encodeId(video.title),
+          title: video.title,
+          date: video.date,
+          type: video.type,
+          duration: video.duration,
+          rate: video.rate,
+          tags: video.tags,
+          thumbs: video.thumbs,
+        })),
+        tags: library.tags,
+        history: library.history,
+      }
+    } catch (error) {
+      console.warn(`[backend] failed to load database from ${dbPath}`)
+      console.warn(error instanceof Error ? error.message : error)
+    }
+
+    res.json(payload)
   })
 
   app.get('/api/videos/:id/stream', (req: Request, res: Response) => {
@@ -149,11 +212,12 @@ export function createApp(videoDir = defaultVideoDir): Express {
   return app
 }
 
-export function startServer(port = DEFAULT_PORT, videoDir = defaultVideoDir) {
+export function startServer(port = DEFAULT_PORT, videoDir = defaultVideoDir, dbPath = defaultDatabasePath) {
   ensureVideoDirectory(videoDir)
-  const app = createApp(videoDir)
+  const app = createApp(videoDir, dbPath)
   return app.listen(port, () => {
     console.log(`[backend] listening on :${port}`)
     console.log(`[backend] serving videos from ${videoDir}`)
+    console.log(`[backend] reading metadata from ${dbPath}`)
   })
 }
