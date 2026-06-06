@@ -2,15 +2,27 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from './App'
 
-function mockFetchOnce(body: unknown, status = 200) {
-  const response = new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  })
+function mockFetchSequence(items: Array<{ body: unknown; status?: number }>) {
+  const queue = [...items]
 
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response))
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockImplementation(() => {
+      const next = queue.shift()
+      if (!next) {
+        return Promise.reject(new Error('Unexpected fetch call'))
+      }
+
+      return Promise.resolve(
+        new Response(JSON.stringify(next.body), {
+          status: next.status ?? 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }),
+      )
+    }),
+  )
 }
 
 function mockFetchFailure(message = 'network error') {
@@ -19,27 +31,17 @@ function mockFetchFailure(message = 'network error') {
 
 test('読み込み表示の後に一覧を表示し、先頭動画を選択状態にする', async () => {
   document.body.innerHTML = ''
-  mockFetchOnce({
+  mockFetchSequence([
+    {
+      body: {
       videos: [
         {
           id: 'Y2xpcC5tcDQ',
           title: 'clip.mp4',
-          date: 1717600000,
-          type: 'movie',
-          duration: 3723,
-          rate: 5,
-          tags: ['night'],
-          thumbs: ['iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO1o4V8AAAAASUVORK5CYII='],
         },
         {
           id: 'YWxwaGEubXA0',
           title: 'alpha.mp4',
-          date: 1717500000,
-          type: 'clip',
-          duration: 123,
-          rate: 4,
-          tags: ['featured'],
-          thumbs: [],
         },
       ],
       tags: [
@@ -47,7 +49,9 @@ test('読み込み表示の後に一覧を表示し、先頭動画を選択状�
         { id: 2, name: 'night' },
       ],
       history: [{ id: 1, media: 1, mediaTitle: 'clip.mp4', date: 1717610000 }],
-    })
+      },
+    },
+  ])
 
     render(<App />)
 
@@ -73,7 +77,7 @@ test('読み込み失敗時にエラーメッセージを表示する', async ()
 
 test('動画が存在しない場合は空状態を表示する', async () => {
   document.body.innerHTML = ''
-  mockFetchOnce({ videos: [], tags: [], history: [] })
+  mockFetchSequence([{ body: { videos: [], tags: [], history: [] } }])
 
     render(<App />)
 
@@ -85,32 +89,36 @@ test('動画が存在しない場合は空状態を表示する', async () => {
 
 test('動画を選ぶと詳細モーダルで再生し、thumbs を表示する', async () => {
   document.body.innerHTML = ''
-  mockFetchOnce({
-      videos: [
-        {
-          id: 'YWxwaGEubXA0',
-          title: 'alpha.mp4',
-          date: 1717500000,
-          type: 'clip',
-          duration: 123,
-          rate: 4,
-          tags: ['featured', 'night'],
-          thumbs: ['thumb-one', 'thumb-two'],
-        },
-        {
-          id: 'YnJhdm8ubXA0',
-          title: 'bravo.mp4',
-          date: 1717600000,
-          type: 'movie',
-          duration: 3723,
-          rate: 5,
-          tags: ['road'],
-          thumbs: [],
-        },
-      ],
-      tags: [{ id: 1, name: 'featured' }],
-      history: [],
-    })
+  mockFetchSequence([
+    {
+      body: {
+        videos: [
+          {
+            id: 'YWxwaGEubXA0',
+            title: 'alpha.mp4',
+          },
+          {
+            id: 'YnJhdm8ubXA0',
+            title: 'bravo.mp4',
+          },
+        ],
+        tags: [{ id: 1, name: 'featured' }],
+        history: [],
+      },
+    },
+    {
+      body: {
+        id: 'YWxwaGEubXA0',
+        title: 'alpha.mp4',
+        date: 1717500000,
+        type: 'clip',
+        duration: 123,
+        rate: 4,
+        tags: ['featured', 'night'],
+        thumbs: ['thumb-one', 'thumb-two'],
+      },
+    },
+  ])
 
     const user = userEvent.setup()
     render(<App />)
@@ -131,22 +139,32 @@ test('動画を選ぶと詳細モーダルで再生し、thumbs を表示する'
 
 test('Escキーでモーダルを閉じる', async () => {
   document.body.innerHTML = ''
-  mockFetchOnce({
-      videos: [
-        {
-          id: 'YWxwaGEubXA0',
-          title: 'alpha.mp4',
-          date: 1717500000,
-          type: 'clip',
-          duration: 123,
-          rate: 4,
-          tags: [],
-          thumbs: [],
-        },
-      ],
-      tags: [],
-      history: [],
-    })
+  mockFetchSequence([
+    {
+      body: {
+        videos: [
+          {
+            id: 'YWxwaGEubXA0',
+            title: 'alpha.mp4',
+          },
+        ],
+        tags: [],
+        history: [],
+      },
+    },
+    {
+      body: {
+        id: 'YWxwaGEubXA0',
+        title: 'alpha.mp4',
+        date: 1717500000,
+        type: 'clip',
+        duration: 123,
+        rate: 4,
+        tags: [],
+        thumbs: [],
+      },
+    },
+  ])
 
     const user = userEvent.setup()
     render(<App />)
@@ -163,22 +181,32 @@ test('Escキーでモーダルを閉じる', async () => {
 
 test('閉じるボタンでモーダルを閉じる', async () => {
   document.body.innerHTML = ''
-  mockFetchOnce({
-      videos: [
-        {
-          id: 'YWxwaGEubXA0',
-          title: 'alpha.mp4',
-          date: 1717500000,
-          type: 'clip',
-          duration: 123,
-          rate: 4,
-          tags: [],
-          thumbs: [],
-        },
-      ],
-      tags: [],
-      history: [],
-    })
+  mockFetchSequence([
+    {
+      body: {
+        videos: [
+          {
+            id: 'YWxwaGEubXA0',
+            title: 'alpha.mp4',
+          },
+        ],
+        tags: [],
+        history: [],
+      },
+    },
+    {
+      body: {
+        id: 'YWxwaGEubXA0',
+        title: 'alpha.mp4',
+        date: 1717500000,
+        type: 'clip',
+        duration: 123,
+        rate: 4,
+        tags: [],
+        thumbs: [],
+      },
+    },
+  ])
 
     const user = userEvent.setup()
     render(<App />)

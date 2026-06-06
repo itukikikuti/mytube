@@ -140,12 +140,6 @@ test('バックエンドルートが一覧取得・全体配信・範囲配信�
       videos: Array<{
         id: string
         title: string
-        date: number
-        type: string
-        duration: number
-        rate: number
-        tags: string[]
-        thumbs: string[]
       }>
       tags: Array<{ id: number; name: string }>
       history: Array<{ id: number; media: number; mediaTitle: string; date: number }>
@@ -155,24 +149,37 @@ test('バックエンドルートが一覧取得・全体配信・範囲配信�
       {
         id: encodeId('alpha.mp4'),
         title: 'alpha.mp4',
-        date: 1717500000,
-        type: 'clip',
-        duration: 123,
-        rate: 4,
-        tags: ['highlight', 'featured'],
-        thumbs: ['thumb-2'],
       },
       {
         id: encodeId('bravo.mp4'),
         title: 'bravo.mp4',
-        date: 1717600000,
-        type: 'movie',
-        duration: 3723,
-        rate: 5,
-        tags: ['night', 'road'],
-        thumbs: ['iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO1o4V8AAAAASUVORK5CYII='],
       },
     ])
+
+    const detailResponse = await fetch(`${testServer.baseUrl}/api/videos/${encodeId('alpha.mp4')}`)
+    assert.equal(detailResponse.status, 200)
+
+    const detailBody = (await detailResponse.json()) as {
+      id: string
+      title: string
+      date: number
+      type: string
+      duration: number
+      rate: number
+      tags: string[]
+      thumbs: string[]
+    }
+
+    assert.deepEqual(detailBody, {
+      id: encodeId('alpha.mp4'),
+      title: 'alpha.mp4',
+      date: 1717500000,
+      type: 'clip',
+      duration: 123,
+      rate: 4,
+      tags: ['highlight', 'featured'],
+      thumbs: ['thumb-2'],
+    })
 
     assert.deepEqual(listBody.tags, [
       { id: 3, name: 'featured' },
@@ -214,6 +221,9 @@ test('バックエンドルートが一覧取得・全体配信・範囲配信�
 
     const invalidIdResponse = await fetch(`${testServer.baseUrl}/api/videos/not-base64/stream`)
     assert.equal(invalidIdResponse.status, 400)
+
+    const missingDetailResponse = await fetch(`${testServer.baseUrl}/api/videos/${encodeId('missing.mp4')}`)
+    assert.equal(missingDetailResponse.status, 404)
 
     const missingResponse = await fetch(`${testServer.baseUrl}/api/videos/${encodeId('missing.mp4')}/stream`)
     assert.equal(missingResponse.status, 404)

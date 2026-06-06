@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 
+type VideoListItem = {
+  id: string
+  title: string
+}
+
 type MediaItem = {
   id: string
   title: string
@@ -24,7 +29,7 @@ type HistoryItem = {
 }
 
 type LibraryResponse = {
-  videos?: MediaItem[]
+  videos?: VideoListItem[]
   tags?: TagItem[]
   history?: HistoryItem[]
 }
@@ -61,13 +66,16 @@ function toThumbSrc(value: string): string {
 }
 
 function App() {
-  const [videos, setVideos] = useState<MediaItem[]>([])
+  const [videos, setVideos] = useState<VideoListItem[]>([])
   const [tags, setTags] = useState<TagItem[]>([])
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [selectedId, setSelectedId] = useState('')
+  const [videoDetails, setVideoDetails] = useState<Record<string, MediaItem>>({})
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [detailLoadingId, setDetailLoadingId] = useState('')
   const [error, setError] = useState('')
+  const [detailError, setDetailError] = useState('')
 
   useEffect(() => {
     let active = true
@@ -111,10 +119,58 @@ function App() {
     }
   }, [])
 
-  const selectedVideo = useMemo(
+  useEffect(() => {
+    if (!isModalOpen || !selectedId || videoDetails[selectedId]) {
+      return
+    }
+
+    let active = true
+
+    async function loadVideoDetails() {
+      setDetailLoadingId(selectedId)
+      setDetailError('')
+
+      try {
+        const response = await fetch(`/api/videos/${encodeURIComponent(selectedId)}`)
+        if (!response.ok) {
+          throw new Error(`Failed to load media item: HTTP ${response.status}`)
+        }
+
+        const detail = (await response.json()) as MediaItem
+        if (!active) return
+
+        setVideoDetails((current) => ({
+          ...current,
+          [selectedId]: detail,
+        }))
+      } catch (err) {
+        if (!active) return
+        setDetailError(err instanceof Error ? err.message : 'Failed to load media item')
+      } finally {
+        if (active) {
+          setDetailLoadingId((current) => (current === selectedId ? '' : current))
+        }
+      }
+    }
+
+    loadVideoDetails()
+
+    return () => {
+      active = false
+    }
+  }, [isModalOpen, selectedId, videoDetails])
+
+  const selectedVideoSummary = useMemo(
     () => videos.find((video) => video.id === selectedId) || null,
     [selectedId, videos],
   )
+
+  const selectedVideo = useMemo(
+    () => videoDetails[selectedId] || null,
+    [selectedId, videoDetails],
+  )
+
+  const modalTitle = selectedVideo?.title ?? selectedVideoSummary?.title ?? 'Video'
 
   useEffect(() => {
     if (!isModalOpen) return
@@ -226,83 +282,91 @@ function App() {
         </div>
       </section>
 
-      {selectedVideo && isModalOpen && (
-        <div className="video-modal" role="dialog" aria-modal="true" aria-label={`${selectedVideo.title} details`}>
+      {isModalOpen && selectedId && (
+        <div className="video-modal" role="dialog" aria-modal="true" aria-label={`${modalTitle} details`}>
           <div className="video-modal-card">
             <div className="video-modal-stage">
               <button type="button" className="modal-close" onClick={handleCloseModal} aria-label="Close player">
                 Close
               </button>
               <video
-                key={selectedVideo.id}
+                key={selectedId}
                 className="video-player fullscreen"
                 controls
                 preload="metadata"
                 autoPlay
-                src={`/api/videos/${encodeURIComponent(selectedVideo.id)}/stream`}
+                src={`/api/videos/${encodeURIComponent(selectedId)}/stream`}
               >
                 Your browser does not support video playback.
               </video>
             </div>
 
             <aside className="video-modal-details">
-              <div>
-                <p className="eyebrow">MEDIA ITEM</p>
-                <h2 className="modal-title">{selectedVideo.title}</h2>
-              </div>
+              {detailLoadingId === selectedId && !selectedVideo && <p className="state">Loading media details...</p>}
 
-              <dl className="details-grid">
-                <div>
-                  <dt>Date</dt>
-                  <dd>{formatDate(selectedVideo.date)}</dd>
-                </div>
-                <div>
-                  <dt>Type</dt>
-                  <dd>{selectedVideo.type}</dd>
-                </div>
-                <div>
-                  <dt>Duration</dt>
-                  <dd>{formatDuration(selectedVideo.duration)}</dd>
-                </div>
-                <div>
-                  <dt>Rate</dt>
-                  <dd>{selectedVideo.rate}</dd>
-                </div>
-              </dl>
+              {detailError && <p className="state error">{detailError}</p>}
 
-              <div className="panel-section compact-section">
-                <h3>Tags</h3>
-                {selectedVideo.tags.length === 0 ? (
-                  <p className="state compact">No tags attached.</p>
-                ) : (
-                  <ul className="chip-list" aria-label="Selected video tags">
-                    {selectedVideo.tags.map((tag) => (
-                      <li key={tag} className="chip accent">
-                        {tag}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              {selectedVideo && (
+                <>
+                  <div>
+                    <p className="eyebrow">MEDIA ITEM</p>
+                    <h2 className="modal-title">{selectedVideo.title}</h2>
+                  </div>
 
-              <div className="panel-section compact-section">
-                <h3>Thumbs</h3>
-                {selectedVideo.thumbs.length === 0 ? (
-                  <p className="state compact">No thumbs attached.</p>
-                ) : (
-                  <ul className="thumb-grid" aria-label="Video thumbs">
-                    {selectedVideo.thumbs.map((thumb, index) => (
-                      <li key={`${selectedVideo.id}-${index}`} className="thumb-item">
-                        <img
-                          src={toThumbSrc(thumb)}
-                          alt={`${selectedVideo.title} thumbnail ${index + 1}`}
-                          loading="lazy"
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+                  <dl className="details-grid">
+                    <div>
+                      <dt>Date</dt>
+                      <dd>{formatDate(selectedVideo.date)}</dd>
+                    </div>
+                    <div>
+                      <dt>Type</dt>
+                      <dd>{selectedVideo.type}</dd>
+                    </div>
+                    <div>
+                      <dt>Duration</dt>
+                      <dd>{formatDuration(selectedVideo.duration)}</dd>
+                    </div>
+                    <div>
+                      <dt>Rate</dt>
+                      <dd>{selectedVideo.rate}</dd>
+                    </div>
+                  </dl>
+
+                  <div className="panel-section compact-section">
+                    <h3>Tags</h3>
+                    {selectedVideo.tags.length === 0 ? (
+                      <p className="state compact">No tags attached.</p>
+                    ) : (
+                      <ul className="chip-list" aria-label="Selected video tags">
+                        {selectedVideo.tags.map((tag) => (
+                          <li key={tag} className="chip accent">
+                            {tag}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <div className="panel-section compact-section">
+                    <h3>Thumbs</h3>
+                    {selectedVideo.thumbs.length === 0 ? (
+                      <p className="state compact">No thumbs attached.</p>
+                    ) : (
+                      <ul className="thumb-grid" aria-label="Video thumbs">
+                        {selectedVideo.thumbs.map((thumb, index) => (
+                          <li key={`${selectedVideo.id}-${index}`} className="thumb-item">
+                            <img
+                              src={toThumbSrc(thumb)}
+                              alt={`${selectedVideo.title} thumbnail ${index + 1}`}
+                              loading="lazy"
+                            />
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </>
+              )}
             </aside>
           </div>
         </div>

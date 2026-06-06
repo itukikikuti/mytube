@@ -2,7 +2,7 @@ import express, { type Express, type Request, type Response } from 'express'
 import cors from 'cors'
 import fs from 'node:fs'
 import path from 'node:path'
-import { defaultDbPath, loadLibrary } from './db'
+import { defaultDbPath, loadLibraryOverview, loadMediaByTitle } from './db'
 
 export type Video = {
   id: string
@@ -20,6 +20,11 @@ export type MediaVideo = {
   thumbs: string[]
 }
 
+export type VideoSummary = {
+  id: string
+  title: string
+}
+
 export type TagItem = {
   id: number
   name: string
@@ -33,7 +38,7 @@ export type HistoryItem = {
 }
 
 export type VideosResponse = {
-  videos: MediaVideo[]
+  videos: VideoSummary[]
   tags: TagItem[]
   history: HistoryItem[]
 }
@@ -127,18 +132,12 @@ export function createApp(videoDir = defaultVideoDir, dbPath = defaultDatabasePa
     let payload: VideosResponse = emptyVideosResponse()
 
     try {
-      const library = loadLibrary(dbPath)
+      const library = loadLibraryOverview(dbPath)
 
       payload = {
         videos: library.videos.map((video) => ({
           id: encodeId(video.title),
           title: video.title,
-          date: video.date,
-          type: video.type,
-          duration: video.duration,
-          rate: video.rate,
-          tags: video.tags,
-          thumbs: video.thumbs,
         })),
         tags: library.tags,
         history: library.history,
@@ -149,6 +148,50 @@ export function createApp(videoDir = defaultVideoDir, dbPath = defaultDatabasePa
     }
 
     res.json(payload)
+  })
+
+  app.get('/api/videos/:id', (req: Request, res: Response) => {
+    const rawId = req.params.id
+    const videoId = Array.isArray(rawId) ? rawId[0] : rawId
+
+    if (!videoId) {
+      res.status(400).json({ error: 'Invalid video id.' })
+      return
+    }
+
+    let title: string
+    try {
+      title = decodeId(videoId)
+    } catch {
+      res.status(400).json({ error: 'Invalid video id.' })
+      return
+    }
+
+    try {
+      const media = loadMediaByTitle(title, dbPath)
+
+      if (!media) {
+        res.status(404).json({ error: 'Video not found.' })
+        return
+      }
+
+      const payload: MediaVideo = {
+        id: encodeId(media.title),
+        title: media.title,
+        date: media.date,
+        type: media.type,
+        duration: media.duration,
+        rate: media.rate,
+        tags: media.tags,
+        thumbs: media.thumbs,
+      }
+
+      res.json(payload)
+    } catch (error) {
+      console.warn(`[backend] failed to load media item from ${dbPath}`)
+      console.warn(error instanceof Error ? error.message : error)
+      res.status(500).json({ error: 'Failed to load media item.' })
+    }
   })
 
   app.get('/api/videos/:id/stream', (req: Request, res: Response) => {
