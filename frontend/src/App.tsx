@@ -12,6 +12,7 @@ type VideosResponse = {
 function App() {
   const [videos, setVideos] = useState<Video[]>([])
   const [selectedId, setSelectedId] = useState('')
+  const [isModalOpen, setIsModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -56,6 +57,33 @@ function App() {
     [selectedId, videos],
   )
 
+  useEffect(() => {
+    if (!isModalOpen) return
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsModalOpen(false)
+      }
+    }
+
+    document.body.classList.add('modal-open')
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.body.classList.remove('modal-open')
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isModalOpen])
+
+  function handleSelectVideo(videoId: string) {
+    setSelectedId(videoId)
+    setIsModalOpen(true)
+  }
+
+  function handleCloseModal() {
+    setIsModalOpen(false)
+  }
+
   return (
     <main className="layout">
       <aside className="panel sidebar">
@@ -79,7 +107,7 @@ function App() {
                 <button
                   type="button"
                   className={video.id === selectedId ? 'video-item selected' : 'video-item'}
-                  onClick={() => setSelectedId(video.id)}
+                  onClick={() => handleSelectVideo(video.id)}
                 >
                   <span className="video-name">{video.name}</span>
                 </button>
@@ -89,27 +117,25 @@ function App() {
         )}
       </aside>
 
-      <section className="panel player-area">
-        <header className="player-header">
-          <h2>{selectedVideo ? selectedVideo.name : 'Select a video'}</h2>
-        </header>
-
-        {selectedVideo ? (
-          <div className="player-frame">
+      {selectedVideo && isModalOpen && (
+        <div className="video-modal" role="dialog" aria-modal="true" aria-label={`${selectedVideo.name} player`}>
+          <button type="button" className="modal-close" onClick={handleCloseModal} aria-label="Close player">
+            Close
+          </button>
+          <div className="video-modal-content">
             <video
               key={selectedVideo.id}
-              className="video-player"
+              className="video-player fullscreen"
               controls
               preload="metadata"
+              autoPlay
               src={`/api/videos/${encodeURIComponent(selectedVideo.id)}/stream`}
             >
               Your browser does not support video playback.
             </video>
           </div>
-        ) : (
-          <div className="empty-player">No video selected.</div>
-        )}
-      </section>
+        </div>
+      )}
     </main>
   )
 }
