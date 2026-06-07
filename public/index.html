@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>MyTube</title>
+</head>
+<body>
+  <p id="message">読み込み中</p>
+  <script>
+    fetch("/api/message")
+      .then(res => res.text())
+      .then(message => {
+        document.getElementById("message").textContent = message;
+      });
+  </script>
+</body>
+</html>

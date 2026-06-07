@@ -2,7 +2,9 @@ import express from "express";
 
 const app = express();
 
-app.get("/", (req, res) => {
+app.use(express.static("public"));
+
+app.get("/api/message", (req, res) => {
   res.send("Hello, World!");
 });
 
