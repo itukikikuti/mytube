@@ -1,10 +1,10 @@
-import express from "express";
+import express, { Request, Response } from "express";
 
 const app = express();
 
 app.use(express.static("public"));
 
-app.get("/api/message", (req, res) => {
+app.get("/api/message", (req: Request, res: Response) => {
   res.send("Hello, World!");
 });
 
