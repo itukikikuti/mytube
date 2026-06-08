@@ -4,7 +4,8 @@
     "module": "ESNext",
     "lib": ["DOM", "ES2024"],
     "strict": true,
-    "composite": true
+    "composite": true,
+    "jsx": "react-jsx"
   },
   "include": ["src/client"]
 }

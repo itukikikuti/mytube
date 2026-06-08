@@ -4,17 +4,21 @@
   "type": "module",
   "scripts": {
     "dev:server": "tsx watch src/server/main.ts",
-    "dev:client": "esbuild src/client/main.ts --bundle --outfile=public/bundle.js --watch",
-    "build": "tsc -b && esbuild src/client/main.ts --bundle --outfile=public/bundle.js --minify"
+    "dev:client": "esbuild src/client/main.tsx --bundle --outfile=public/bundle.js --watch --jsx=automatic",
+    "build": "tsc -b && esbuild src/client/main.tsx --bundle --outfile=public/bundle.js --minify --jsx=automatic"
   },
   "dependencies": {
     "better-sqlite3": "^12.10.0",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/express": "^5.0.6",
     "@types/node": "^25.9.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
     "esbuild": "^0.28.0",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3"
