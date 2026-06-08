@@ -1,11 +1,9 @@
-import express, { Request, Response } from "express";
+import express from "express";
+import itemsRouter from "./routes/mediaItems.js";
 
 const app = express();
 
 app.use(express.static("public"));
+app.use("/api/media-items", itemsRouter);
 
-app.get("/api/message", (req: Request, res: Response) => {
-  res.send("Hello, World!");
-});
-
-app.listen(3000, () => console.log("Server running on http://localhost:3000"))
+app.listen(3000, () => console.log("Server running on http://localhost:3000"));

@@ -8,9 +8,11 @@
     "build": "tsc -b && esbuild src/client/main.ts --bundle --outfile=public/bundle.js --minify"
   },
   "dependencies": {
+    "better-sqlite3": "^12.10.0",
     "express": "^5.2.1"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/express": "^5.0.6",
     "@types/node": "^25.9.2",
     "esbuild": "^0.28.0",
