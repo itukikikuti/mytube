@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "module": "ESNext",
+    "lib": ["DOM", "ES2024"],
+    "strict": true,
+    "composite": true
+  },
+  "include": ["src/client"]
+}

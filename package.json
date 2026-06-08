@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsc"
+    "dev:server": "tsx watch src/server/index.ts",
+    "dev:client": "esbuild src/client/main.ts --bundle --outfile=public/bundle.js --watch",
+    "build": "tsc -b && esbuild src/client/main.ts --bundle --outfile=public/bundle.js --minify"
   },
   "dependencies": {
     "express": "^5.2.1"
@@ -12,6 +13,7 @@
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^25.9.2",
+    "esbuild": "^0.28.0",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3"
   }
