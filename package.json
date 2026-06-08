@@ -1,11 +1,10 @@
 {
   "name": "mytube",
   "version": "1.0.0",
-  "type": "module",
   "scripts": {
     "dev:server": "tsx watch src/server/main.ts",
     "dev:client": "esbuild src/client/main.tsx --bundle --outfile=public/bundle.js --watch --jsx=automatic",
-    "build": "tsc -b && esbuild src/client/main.tsx --bundle --outfile=public/bundle.js --minify --jsx=automatic"
+    "build": "esbuild src/client/main.tsx --bundle --outfile=public/bundle.js --minify --jsx=automatic"
   },
   "dependencies": {
     "better-sqlite3": "^12.10.0",
