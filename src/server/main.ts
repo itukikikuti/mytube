@@ -1,5 +1,5 @@
 import express from "express";
-import itemsRouter from "./routes/mediaItems.js";
+import itemsRouter from "./routes/mediaItems";
 
 const app = express();
 
