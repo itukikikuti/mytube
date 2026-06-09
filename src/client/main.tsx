@@ -17,7 +17,14 @@ function App() {
   useEffect(() => {
     if (selectedItem) {
       dialogRef.current?.showModal();
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
     }
+
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [selectedItem]);
 
   function handleClose() {
@@ -34,8 +41,37 @@ function App() {
           </li>
         ))}
       </ul>
-      <dialog ref={dialogRef} onClose={handleClose}>
-        {selectedItem && <video src={`/api/video/${selectedItem.id}/stream`} controls autoPlay />}
+      <dialog ref={dialogRef} onClose={handleClose} style={{
+        width: "100vw",
+        height: "100vh",
+        maxWidth: "100vw",
+        maxHeight: "100vh",
+        margin: 0,
+        padding: 0,
+        border: "none",
+        boxSizing: "border-box",
+        display: "flex",
+        flexDirection: "column",
+      }}>
+        <header style={{
+          display: "flex",
+          alignItems: "center",
+          padding: "0.5rem",
+          gap: "0.5rem",
+        }}>
+          <button onClick={handleClose}>Close</button>
+          <h3 style={{
+            margin: 0,
+          }}>{selectedItem?.title}</h3>
+          <button>Play</button>
+        </header>
+        {selectedItem && <video src={`/api/video/${selectedItem.id}/stream`} controls autoPlay style={{
+          display: "block",
+          backgroundColor: "black",
+          flex: 1,
+          width: "100%",
+          minHeight: 0,
+        }} />}
       </dialog>
     </>
   );
