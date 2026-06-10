@@ -32,6 +32,18 @@ function App() {
     setSelectedItem(null);
   }
 
+  function handlePlay() {
+    if (!selectedItem) return;
+    fetch("/api/history-items", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        media: selectedItem.id,
+        date: Math.floor(Date.now() / 1000),
+      }),
+    });
+  }
+
   return (
     <>
       <ul>
@@ -63,7 +75,7 @@ function App() {
           <h3 style={{
             margin: 0,
           }}>{selectedItem?.title}</h3>
-          <button>Play</button>
+          <button onClick={handlePlay}>Play</button>
         </header>
         {selectedItem && <video src={`/api/video/${selectedItem.id}/stream`} controls autoPlay style={{
           display: "block",
