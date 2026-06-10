@@ -62,28 +62,34 @@ function App() {
         padding: 0,
         border: "none",
         boxSizing: "border-box",
-        display: "flex",
-        flexDirection: "column",
       }}>
-        <header style={{
+        <div style={{
           display: "flex",
-          alignItems: "center",
-          padding: "0.5rem",
-          gap: "0.5rem",
-        }}>
-          <button onClick={handleClose}>Close</button>
-          <h3 style={{
-            margin: 0,
-          }}>{selectedItem?.title}</h3>
-          <button onClick={handlePlay}>Play</button>
-        </header>
-        {selectedItem && <video src={`/api/video/${selectedItem.id}/stream`} controls autoPlay style={{
-          display: "block",
-          backgroundColor: "black",
-          flex: 1,
+          flexDirection: "column",
+          // flex: 1,
           width: "100%",
-          minHeight: 0,
-        }} />}
+          height: "100%",
+        }}>
+          <header style={{
+            display: "flex",
+            alignItems: "center",
+            padding: "0.5rem",
+            gap: "0.5rem",
+          }}>
+            <button onClick={handleClose}>Close</button>
+            <h3 style={{
+              margin: 0,
+            }}>{selectedItem?.title}</h3>
+            <button onClick={handlePlay}>Play</button>
+          </header>
+          {selectedItem && <video src={`/api/video/${selectedItem.id}/stream`} controls autoPlay style={{
+            display: "block",
+            backgroundColor: "black",
+            flex: 1,
+            width: "100%",
+            minHeight: 0,
+          }} />}
+        </div>
       </dialog>
     </>
   );
