@@ -3,9 +3,19 @@ import { createRoot } from "react-dom/client";
 
 type MediaItem = { id: number; title: string };
 
+type MediaDetail = MediaItem & {
+  date?: number;
+  type?: string;
+  duration?: number;
+  rate?: number;
+  tags?: string;
+};
+
 function App() {
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<MediaItem | null>(null);
+  const [selectedDetail, setSelectedDetail] = useState<MediaDetail | null>(null);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
   
   useEffect(() => {
@@ -25,6 +35,17 @@ function App() {
     return () => {
       document.body.style.overflow = "";
     };
+  }, [selectedItem]);
+
+  useEffect(() => {
+    if (!selectedItem) {
+      setSelectedDetail(null);
+      return;
+    }
+
+    fetch(`/api/media-items/${selectedItem.id}`)
+      .then((r) => r.json())
+      .then(setSelectedDetail);
   }, [selectedItem]);
 
   function handleClose() {
@@ -66,7 +87,6 @@ function App() {
         <div style={{
           display: "flex",
           flexDirection: "column",
-          // flex: 1,
           width: "100%",
           height: "100%",
         }}>
@@ -77,18 +97,38 @@ function App() {
             gap: "0.5rem",
           }}>
             <button onClick={handleClose}>Close</button>
-            <h3 style={{
-              margin: 0,
-            }}>{selectedItem?.title}</h3>
+            <h3 style={{ margin: 0 }}>{selectedItem?.title}</h3>
             <button onClick={handlePlay}>Play</button>
           </header>
-          {selectedItem && <video src={`/api/video/${selectedItem.id}/stream`} controls autoPlay style={{
-            display: "block",
-            backgroundColor: "black",
-            flex: 1,
-            width: "100%",
-            minHeight: 0,
-          }} />}
+          <div>
+            <main style={{ flex: 1, minWidth: 0 }}>
+              {selectedItem && <video src={`/api/video/${selectedItem.id}/stream`} controls autoPlay style={{
+                display: "block",
+                backgroundColor: "black",
+                flex: 1,
+                width: "100%",
+                minHeight: 0,
+              }} />}
+            </main>
+            <aside>
+              {selectedDetail && (
+                <dl>
+                  <dt>ID</dt>
+                  <dd>{selectedDetail.id}</dd>
+                  <dt>Date</dt>
+                  <dd>{selectedDetail.date}</dd>
+                  <dt>Type</dt>
+                  <dd>{selectedDetail.type}</dd>
+                  <dt>Duration</dt>
+                  <dd>{selectedDetail.duration}</dd>
+                  <dt>Rate</dt>
+                  <dd>{selectedDetail.rate}</dd>
+                  <dt>Tags</dt>
+                  <dd>{selectedDetail.tags}</dd>
+                </dl>
+              )}
+            </aside>
+          </div>
         </div>
       </dialog>
     </>
