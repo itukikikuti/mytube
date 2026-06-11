@@ -118,18 +118,26 @@ function App() {
             <aside className="w-64 border-l p-4 overflow-y-auto">
               {selectedDetail && (
                 <dl className="space-y-2">
-                  <dt>ID</dt>
-                  <dd>{selectedDetail.id}</dd>
-                  <dt>Date</dt>
-                  <dd>{selectedDetail.date}</dd>
-                  <dt>Type</dt>
-                  <dd>{selectedDetail.type}</dd>
-                  <dt>Duration</dt>
-                  <dd>{selectedDetail.duration}</dd>
-                  <dt>Rate</dt>
-                  <dd>{selectedDetail.rate}</dd>
-                  <dt>Tags</dt>
-                  <dd>{selectedDetail.tags}</dd>
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">日時</dt>
+                    <dd>{formatDateTime(selectedDetail.date)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">種別</dt>
+                    <dd>{selectedDetail.type ?? "未設定"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">再生時間</dt>
+                    <dd>{selectedDetail.duration ? `${selectedDetail.duration} 秒` : "未設定"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">レート</dt>
+                    <dd>{selectedDetail.rate ?? "未設定"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">タグ</dt>
+                    <dd>{selectedDetail.tags ?? "未設定"}</dd>
+                  </div>
                 </dl>
               )}
             </aside>
