@@ -16,7 +16,18 @@ router.get("/:id", (req, res) => {
   }
 
   const row = db
-    .prepare("SELECT * FROM media_items WHERE id = ?")
+    .prepare(
+      `SELECT
+         media_items.*,
+         COALESCE(history_stats.play_count, 0) AS playCount
+       FROM media_items
+       LEFT JOIN (
+         SELECT media, COUNT(*) AS play_count
+         FROM history_items
+         GROUP BY media
+       ) AS history_stats ON history_stats.media = media_items.id
+       WHERE media_items.id = ?`,
+    )
     .get(id);
 
   if (!row) {

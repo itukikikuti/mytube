@@ -10,6 +10,7 @@ type MediaDetail = MediaItem & {
   rate?: number;
   tags?: string;
   thumbs?: string;
+  playCount?: number;
 };
 
 function formatDuration(seconds?: number) {
@@ -193,7 +194,11 @@ function MediaCard({
           {item.title}
         </p>
         <div className="mt-auto flex items-center justify-between text-sm text-slate-500">
-          <span>{detail ? (formatDate(detail.date) || "日付なし") : (isDetailLoading ? "取得中..." : "")}</span>
+          <span>
+            {detail
+              ? `${detail.playCount ?? 0}回・${formatDate(detail.date) || "日付なし"}`
+              : (isDetailLoading ? "取得中..." : "")}
+          </span>
           {detail?.rate != null && <RatingHearts rate={detail.rate} />}
         </div>
       </button>
