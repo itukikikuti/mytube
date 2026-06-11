@@ -85,20 +85,20 @@ function App() {
             <h3 className="m-0">{selectedItem?.title}</h3>
             <button onClick={handlePlay}>Play</button>
           </header>
-          <div>
+          <div className="flex flex-1">
             <main className="min-w-0 flex-1">
               {selectedItem && (
                 <video
                   src={`/api/video/${selectedItem.id}/stream`}
                   controls
                   autoPlay
-                  className="block min-h-0 w-full flex-1 bg-black"
+                  className="block min-h-0 w-full h-full bg-black"
                 />
               )}
             </main>
-            <aside>
+            <aside className="w-64 border-l p-4 overflow-y-auto">
               {selectedDetail && (
-                <dl>
+                <dl className="space-y-2">
                   <dt>ID</dt>
                   <dd>{selectedDetail.id}</dd>
                   <dt>Date</dt>
