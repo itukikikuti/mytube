@@ -44,6 +44,19 @@ function formatDateTime(value?: number) {
   }).format(date);
 }
 
+function RatingHearts({ rate }: { rate?: number }) {
+  const value = rate ?? 0;
+  return (
+    <span className="flex gap-0.5">
+      {Array.from({ length: 5 }, (_, i) => (
+        <span key={i} className={i < value ? "text-pink-400" : "text-slate-300"}>
+          ♥
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function MediaCard({
   item,
   onSelect,
@@ -181,7 +194,7 @@ function MediaCard({
         </p>
         <div className="mt-auto flex items-center justify-between text-sm text-slate-500">
           <span>{detail ? (formatDate(detail.date) || "日付なし") : (isDetailLoading ? "取得中..." : "")}</span>
-          <span>{detail?.rate != null ? `★ ${detail.rate}` : ""}</span>
+          {detail?.rate != null && <RatingHearts rate={detail.rate} />}
         </div>
       </button>
     </li>
@@ -287,7 +300,7 @@ function App() {
                   </div>
                   <div>
                     <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">レート</dt>
-                    <dd>{selectedDetail.rate ?? "未設定"}</dd>
+                    <dd>{selectedDetail.rate != null ? <RatingHearts rate={selectedDetail.rate} /> : "未設定"}</dd>
                   </div>
                   <div>
                     <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">タグ</dt>
