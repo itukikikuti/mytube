@@ -9,6 +9,7 @@ type MediaDetail = MediaItem & {
   duration?: number;
   rate?: number;
   tags?: string;
+  thumbs?: string;
 };
 
 function formatDuration(seconds?: number) {
@@ -54,6 +55,7 @@ function MediaCard({
   const [isVisible, setIsVisible] = useState(false);
   const [detail, setDetail] = useState<MediaDetail | null>(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [currentThumbIndex, setCurrentThumbIndex] = useState(0);
 
   useEffect(() => {
     const element = buttonRef.current;
@@ -88,6 +90,7 @@ function MediaCard({
       .then((data) => {
         if (!isCancelled) {
           setDetail(data);
+          setCurrentThumbIndex(0);
         }
       })
       .finally(() => {
@@ -101,6 +104,19 @@ function MediaCard({
     };
   }, [detail, item.id, isVisible]);
 
+  useEffect(() => {
+    if (!detail?.thumbs) return;
+
+    const thumbs = JSON.parse(detail.thumbs);
+    if (thumbs.length <= 1) return;
+
+    const interval = setInterval(() => {
+      setCurrentThumbIndex((prev) => (prev + 1) % thumbs.length);
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [detail]);
+
   return (
     <li className="h-full">
       <button
@@ -110,9 +126,43 @@ function MediaCard({
         className="group flex h-72 w-full cursor-pointer flex-col rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
       >
         <div className="relative mb-3 aspect-video w-full overflow-hidden rounded-lg bg-slate-100">
-          <span className="flex h-full items-center justify-center text-sm font-medium text-slate-500">
-            Thumbnail
-          </span>
+          {(detail?.thumbs && JSON.parse(detail.thumbs).length > 0) ? (
+            <>
+              <div className="relative h-full w-full overflow-hidden">
+                <div
+                  className="flex h-full transition-transform duration-500"
+                  style={{
+                    transform: `translateX(${-currentThumbIndex * 100}%)`,
+                  }}
+                >
+                  {JSON.parse(detail.thumbs).map((thumb: string) => (
+                    <img
+                      key={thumb}
+                      src={`data:image/jpeg;base64,${thumb}`}
+                      alt={item.title}
+                      className="h-full min-w-full object-cover"
+                    />
+                  ))}
+                </div>
+              </div>
+              {JSON.parse(detail.thumbs).length > 1 && (
+                <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
+                  {JSON.parse(detail.thumbs).map((_: string, idx: number) => (
+                    <div
+                      key={idx}
+                      className={`h-1.5 w-1.5 rounded-full transition-all ${
+                        idx === currentThumbIndex ? "bg-white" : "bg-white/50"
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <span className="flex h-full items-center justify-center text-sm font-medium text-slate-500">
+              サムネイルなし
+            </span>
+          )}
           {detail?.duration != null && (
             <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-xs font-medium text-white">
               {formatDuration(detail.duration)}
