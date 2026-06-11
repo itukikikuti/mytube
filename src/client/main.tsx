@@ -11,11 +11,137 @@ type MediaDetail = MediaItem & {
   tags?: string;
 };
 
+function formatDuration(seconds?: number) {
+  if (!seconds) return "未設定";
+
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+
+  const mm = String(m).padStart(2, "0");
+  const ss = String(s).padStart(2, "0");
+
+  return h > 0 ? `${h}:${mm}:${ss}` : `${m}:${ss}`;
+}
+
+function formatDate(value?: number) {
+  if (!value) return "";
+
+  const d = new Date(value < 1e12 ? value * 1000 : value);
+
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+function formatDateTime(value?: number) {
+  if (!value) return "未取得";
+
+  const date = new Date(value < 1e12 ? value * 1000 : value);
+
+  return new Intl.DateTimeFormat("ja-JP", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function MediaCard({
+  item,
+  onSelect,
+}: {
+  item: MediaItem;
+  onSelect: (item: MediaItem) => void;
+}) {
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+  const [detail, setDetail] = useState<MediaDetail | null>(null);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
+
+  useEffect(() => {
+    const element = buttonRef.current;
+
+    if (!element) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+        }
+      },
+      { rootMargin: "200px" },
+    );
+
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isVisible || detail || isDetailLoading) return;
+
+    let isCancelled = false;
+
+    setIsDetailLoading(true);
+
+    fetch(`/api/media-items/${item.id}`)
+      .then((response) => response.json())
+      .then((data) => {
+        if (!isCancelled) {
+          setDetail(data);
+        }
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setIsDetailLoading(false);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [detail, item.id, isVisible]);
+
+  return (
+    <li className="h-full">
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={() => onSelect(item)}
+        className="group flex h-72 w-full cursor-pointer flex-col rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+      >
+        <div className="relative mb-3 aspect-video w-full overflow-hidden rounded-lg bg-slate-100">
+          <span className="flex h-full items-center justify-center text-sm font-medium text-slate-500">
+            Thumbnail
+          </span>
+          {detail?.duration != null && (
+            <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-xs font-medium text-white">
+              {formatDuration(detail.duration)}
+            </span>
+          )}
+        </div>
+        <p
+          className="mb-3 flex-1 overflow-hidden text-base font-semibold text-slate-900"
+          style={{
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+          }}
+        >
+          {item.title}
+        </p>
+        <div className="mt-auto flex items-center justify-between text-sm text-slate-500">
+          <span>{detail ? (formatDate(detail.date) || "日付なし") : (isDetailLoading ? "取得中..." : "")}</span>
+          <span>{detail?.rate != null ? `★ ${detail.rate}` : ""}</span>
+        </div>
+      </button>
+    </li>
+  );
+}
+
 function App() {
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<MediaItem | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<MediaDetail | null>(null);
-  const [isDetailLoading, setIsDetailLoading] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
   
   useEffect(() => {
@@ -69,28 +195,7 @@ function App() {
     <>
       <ul className="grid list-none grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {mediaItems.map((item) => (
-          <li key={item.id} className="h-full">
-            <button
-              type="button"
-              onClick={() => setSelectedItem(item)}
-              className="group flex h-72 w-full cursor-pointer flex-col rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
-            >
-              <div className="mb-3 flex aspect-video items-center justify-center rounded-lg bg-slate-100 text-sm font-medium text-slate-500">
-                Thumbnail
-              </div>
-              <p
-                className="mb-2 overflow-hidden text-base font-semibold text-slate-900"
-                style={{
-                  display: "-webkit-box",
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: "vertical",
-                }}
-              >
-                {item.title}
-              </p>
-              <p className="mt-auto text-sm text-slate-500">ID: {item.id}</p>
-            </button>
-          </li>
+          <MediaCard key={item.id} item={item} onSelect={setSelectedItem} />
         ))}
       </ul>
       <dialog
@@ -128,7 +233,7 @@ function App() {
                   </div>
                   <div>
                     <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">再生時間</dt>
-                    <dd>{selectedDetail.duration ? `${selectedDetail.duration} 秒` : "未設定"}</dd>
+                    <dd>{formatDuration(selectedDetail.duration)}</dd>
                   </div>
                   <div>
                     <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">レート</dt>
