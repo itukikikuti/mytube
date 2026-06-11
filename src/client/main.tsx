@@ -67,10 +67,29 @@ function App() {
 
   return (
     <>
-      <ul>
+      <ul className="grid list-none grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {mediaItems.map((item) => (
-          <li key={item.id} onClick={() => setSelectedItem(item)} className="cursor-pointer">
-            {item.title}
+          <li key={item.id} className="h-full">
+            <button
+              type="button"
+              onClick={() => setSelectedItem(item)}
+              className="group flex h-72 w-full cursor-pointer flex-col rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+            >
+              <div className="mb-3 flex aspect-video items-center justify-center rounded-lg bg-slate-100 text-sm font-medium text-slate-500">
+                Thumbnail
+              </div>
+              <p
+                className="mb-2 overflow-hidden text-base font-semibold text-slate-900"
+                style={{
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                }}
+              >
+                {item.title}
+              </p>
+              <p className="mt-auto text-sm text-slate-500">ID: {item.id}</p>
+            </button>
           </li>
         ))}
       </ul>
