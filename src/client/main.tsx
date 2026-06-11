@@ -69,46 +69,32 @@ function App() {
     <>
       <ul>
         {mediaItems.map((item) => (
-          <li key={item.id} onClick={() => setSelectedItem(item)} style={{ cursor: "pointer" }}>
+          <li key={item.id} onClick={() => setSelectedItem(item)} className="cursor-pointer">
             {item.title}
           </li>
         ))}
       </ul>
-      <dialog ref={dialogRef} onClose={handleClose} style={{
-        width: "100vw",
-        height: "100vh",
-        maxWidth: "100vw",
-        maxHeight: "100vh",
-        margin: 0,
-        padding: 0,
-        border: "none",
-        boxSizing: "border-box",
-      }}>
-        <div style={{
-          display: "flex",
-          flexDirection: "column",
-          width: "100%",
-          height: "100%",
-        }}>
-          <header style={{
-            display: "flex",
-            alignItems: "center",
-            padding: "0.5rem",
-            gap: "0.5rem",
-          }}>
+      <dialog
+        ref={dialogRef}
+        onClose={handleClose}
+        className="box-border m-0 h-screen max-h-screen w-screen max-w-screen border-none p-0"
+      >
+        <div className="flex h-full w-full flex-col">
+          <header className="flex items-center gap-2 p-2">
             <button onClick={handleClose}>Close</button>
-            <h3 style={{ margin: 0 }}>{selectedItem?.title}</h3>
+            <h3 className="m-0">{selectedItem?.title}</h3>
             <button onClick={handlePlay}>Play</button>
           </header>
           <div>
-            <main style={{ flex: 1, minWidth: 0 }}>
-              {selectedItem && <video src={`/api/video/${selectedItem.id}/stream`} controls autoPlay style={{
-                display: "block",
-                backgroundColor: "black",
-                flex: 1,
-                width: "100%",
-                minHeight: 0,
-              }} />}
+            <main className="min-w-0 flex-1">
+              {selectedItem && (
+                <video
+                  src={`/api/video/${selectedItem.id}/stream`}
+                  controls
+                  autoPlay
+                  className="block min-h-0 w-full flex-1 bg-black"
+                />
+              )}
             </main>
             <aside>
               {selectedDetail && (

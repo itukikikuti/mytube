@@ -2,9 +2,11 @@
   "name": "mytube",
   "version": "1.0.0",
   "scripts": {
+    "dev": "concurrently \"npm:dev:server\" \"npm:dev:client\" \"npm:dev:css\"",
     "dev:server": "tsx watch src/server/main.ts",
     "dev:client": "esbuild src/client/main.tsx --bundle --outfile=public/bundle.js --watch --jsx=automatic",
-    "build": "esbuild src/client/main.tsx --bundle --outfile=public/bundle.js --minify --jsx=automatic"
+    "dev:css": "tailwindcss -i ./src/client/styles.css -o ./public/tailwind.css --watch",
+    "build": "esbuild src/client/main.tsx --bundle --outfile=public/bundle.js --minify --jsx=automatic && tailwindcss -i ./src/client/styles.css -o ./public/tailwind.css --minify"
   },
   "dependencies": {
     "better-sqlite3": "^12.10.0",
@@ -18,7 +20,10 @@
     "@types/node": "^25.9.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@tailwindcss/cli": "^4.3.0",
+    "concurrently": "^9.2.1",
     "esbuild": "^0.28.0",
+    "tailwindcss": "^4.3.0",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3"
   }
