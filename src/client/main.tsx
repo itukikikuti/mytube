@@ -163,7 +163,7 @@ function MediaCard({
         onClick={() => onSelect(item)}
         className="group flex h-72 w-full cursor-pointer flex-col overflow-hidden rounded-[28px] border border-rose-200/70 bg-white/80 p-4 text-left shadow-[0_16px_40px_rgba(233,187,205,0.22)] backdrop-blur-sm transition hover:-translate-y-1 hover:border-rose-300/80 hover:shadow-[0_22px_50px_rgba(233,187,205,0.3)] focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
       >
-        <div className="relative mb-3 aspect-video w-full overflow-hidden rounded-[22px] bg-gradient-to-br from-rose-100 via-amber-50 to-pink-100 ring-1 ring-white/70">
+        <div className="relative mb-3 aspect-video w-full overflow-hidden rounded-[22px] bg-black ring-1 ring-white/70">
           {thumbs.length > 0 ? (
             <>
               <div className="relative h-full w-full overflow-hidden">
@@ -178,7 +178,7 @@ function MediaCard({
                       key={thumb}
                       src={`data:image/jpeg;base64,${thumb}`}
                       alt={item.title}
-                      className="h-full min-w-full object-cover"
+                      className="h-full min-w-full object-contain bg-black"
                     />
                   ))}
                 </div>
