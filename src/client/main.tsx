@@ -73,7 +73,7 @@ function RatingHearts({ rate }: { rate?: number }) {
   return (
     <span className="flex gap-0.5">
       {Array.from({ length: 5 }, (_, i) => (
-        <span key={i} className={i < value ? "text-pink-400" : "text-slate-300"}>
+        <span key={i} className={i < value ? "text-rose-400 drop-shadow-[0_1px_1px_rgba(255,255,255,0.65)]" : "text-rose-200"}>
           ♥
         </span>
       ))}
@@ -161,9 +161,9 @@ function MediaCard({
         ref={buttonRef}
         type="button"
         onClick={() => onSelect(item)}
-        className="group flex h-72 w-full cursor-pointer flex-col rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+        className="group flex h-72 w-full cursor-pointer flex-col overflow-hidden rounded-[28px] border border-rose-200/70 bg-white/80 p-4 text-left shadow-[0_16px_40px_rgba(233,187,205,0.22)] backdrop-blur-sm transition hover:-translate-y-1 hover:border-rose-300/80 hover:shadow-[0_22px_50px_rgba(233,187,205,0.3)] focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
       >
-        <div className="relative mb-3 aspect-video w-full overflow-hidden rounded-lg bg-slate-100">
+        <div className="relative mb-3 aspect-video w-full overflow-hidden rounded-[22px] bg-gradient-to-br from-rose-100 via-amber-50 to-pink-100 ring-1 ring-white/70">
           {thumbs.length > 0 ? (
             <>
               <div className="relative h-full w-full overflow-hidden">
@@ -189,7 +189,7 @@ function MediaCard({
                     <div
                       key={idx}
                       className={`h-1.5 w-1.5 rounded-full transition-all ${
-                        idx === currentThumbIndex ? "bg-white" : "bg-white/50"
+                        idx === currentThumbIndex ? "w-4 bg-white" : "bg-white/55"
                       }`}
                     />
                   ))}
@@ -197,18 +197,18 @@ function MediaCard({
               )}
             </>
           ) : (
-            <span className="flex h-full items-center justify-center text-sm font-medium text-slate-500">
+            <span className="flex h-full items-center justify-center text-sm font-semibold text-rose-500/80">
               サムネイルなし
             </span>
           )}
           {cardData?.duration != null && (
-            <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-xs font-medium text-white">
+            <span className="absolute bottom-2 right-2 rounded-full bg-white/88 px-2.5 py-1 text-xs font-semibold text-rose-700 shadow-sm backdrop-blur-sm">
               {formatDuration(cardData.duration)}
             </span>
           )}
         </div>
         <p
-          className="mb-3 flex-1 overflow-hidden text-base font-semibold text-slate-900"
+          className="mb-3 flex-1 overflow-hidden text-base font-bold leading-6 text-rose-950/85"
           style={{
             display: "-webkit-box",
             WebkitLineClamp: 2,
@@ -217,7 +217,7 @@ function MediaCard({
         >
           {item.title}
         </p>
-        <div className="mt-auto flex items-center justify-between text-sm text-slate-500">
+        <div className="mt-auto flex items-center justify-between gap-3 text-sm text-rose-700/75">
           <span>
             {cardData
               ? `${cardData.playCount ?? 0}回・${formatDate(cardData.date) || "日付なし"}`
@@ -375,163 +375,184 @@ function App() {
 
   return (
     <>
-      <section className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50/95 px-4 py-3 backdrop-blur">
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div className="flex flex-1 flex-col gap-2 sm:flex-row">
-              <input
-                type="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="タイトルで検索"
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-500"
-              />
-              <select
-                value={sortKey}
-                onChange={(event) => setSortKey(event.target.value as SortKey)}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-500"
-              >
-                <option value="dateDesc">新しい順</option>
-                <option value="dateAsc">古い順</option>
-                <option value="durationDesc">長い順</option>
-                <option value="durationAsc">短い順</option>
-                <option value="rateDesc">レート高い順</option>
-                <option value="playCountDesc">再生回数順</option>
-                <option value="titleAsc">タイトル順</option>
-              </select>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setShowFilters((current) => !current)}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-              >
-                {showFilters ? "詳細フィルタを閉じる" : "詳細フィルタ"}
-              </button>
-              <button
-                type="button"
-                onClick={resetFilters}
-                disabled={!hasActiveFilters}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                リセット
-              </button>
-            </div>
-          </div>
+      <div className="app-shell">
+        <div className="app-frame">
+          <section className="sticky top-0 z-10 px-4 py-4 backdrop-blur-md">
+            <div className="rounded-[32px] border border-white/70 bg-[rgba(255,255,255,0.72)] px-4 py-4 shadow-[0_18px_50px_rgba(232,192,206,0.28)] ring-1 ring-rose-100/70 md:px-5">
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <div className="flex flex-1 flex-col gap-2 sm:flex-row">
+                    <input
+                      type="search"
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder="タイトルで検索"
+                      className="w-full rounded-full border border-rose-200/80 bg-white/90 px-4 py-2.5 text-sm text-rose-950/80 outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
+                    />
+                    <select
+                      value={sortKey}
+                      onChange={(event) => setSortKey(event.target.value as SortKey)}
+                      className="rounded-full border border-rose-200/80 bg-white/90 px-4 py-2.5 text-sm text-rose-950/80 outline-none focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
+                    >
+                      <option value="dateDesc">新しい順</option>
+                      <option value="dateAsc">古い順</option>
+                      <option value="durationDesc">長い順</option>
+                      <option value="durationAsc">短い順</option>
+                      <option value="rateDesc">レート高い順</option>
+                      <option value="playCountDesc">再生回数順</option>
+                      <option value="titleAsc">タイトル順</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowFilters((current) => !current)}
+                      className="rounded-full border border-rose-200/90 bg-gradient-to-b from-white to-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 shadow-sm hover:-translate-y-0.5 hover:border-rose-300"
+                    >
+                      {showFilters ? "詳細フィルタを閉じる" : "詳細フィルタ"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={resetFilters}
+                      disabled={!hasActiveFilters}
+                      className="rounded-full border border-amber-200/90 bg-gradient-to-b from-white to-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-700 shadow-sm hover:-translate-y-0.5 hover:border-amber-300 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      リセット
+                    </button>
+                  </div>
+                </div>
 
-          {showFilters && (
-            <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-3 md:grid-cols-2 xl:grid-cols-4">
-              <label className="flex flex-col gap-1 text-sm text-slate-700">
-                レート
-                <select
-                  value={minRate}
-                  onChange={(event) => setMinRate(Number(event.target.value))}
-                  className="rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm"
-                >
-                  <option value={0}>指定なし</option>
-                  <option value={3}>3以上</option>
-                  <option value={4}>4以上</option>
-                  <option value={5}>5のみ</option>
-                </select>
-              </label>
-
-              <fieldset className="flex flex-col gap-1 rounded-lg border border-slate-200 p-2">
-                <legend className="px-1 text-xs font-medium text-slate-500">種別</legend>
-                {availableTypes.length === 0 ? (
-                  <span className="text-sm text-slate-500">種別なし</span>
-                ) : (
-                  availableTypes.map((type) => (
-                    <label key={type} className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={selectedTypes.includes(type)}
-                        onChange={() => toggleType(type)}
-                      />
-                      {type}
+                {showFilters && (
+                  <div className="grid gap-3 rounded-[28px] border border-rose-100/90 bg-white/78 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] md:grid-cols-2 xl:grid-cols-4">
+                    <label className="flex flex-col gap-1.5 rounded-[22px] border border-rose-100/70 bg-rose-50/45 p-3 text-sm font-medium text-rose-800/85">
+                      レート
+                      <select
+                        value={minRate}
+                        onChange={(event) => setMinRate(Number(event.target.value))}
+                        className="rounded-full border border-rose-200/80 bg-white/90 px-3 py-2 text-sm font-normal text-rose-950/80 outline-none focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
+                      >
+                        <option value={0}>指定なし</option>
+                        <option value={3}>3以上</option>
+                        <option value={4}>4以上</option>
+                        <option value={5}>5のみ</option>
+                      </select>
                     </label>
-                  ))
+
+                    <fieldset className="flex flex-col gap-2 rounded-[22px] border border-rose-100/70 bg-white/65 p-3">
+                      <legend className="px-1 text-xs font-semibold uppercase tracking-[0.2em] text-rose-400">種別</legend>
+                      {availableTypes.length === 0 ? (
+                        <span className="text-sm text-rose-500/75">種別なし</span>
+                      ) : (
+                        availableTypes.map((type) => (
+                          <label key={type} className="flex items-center gap-2 text-sm text-rose-900/80">
+                            <input
+                              type="checkbox"
+                              checked={selectedTypes.includes(type)}
+                              onChange={() => toggleType(type)}
+                              className="h-4 w-4 rounded border-rose-300 text-rose-400 accent-rose-400"
+                            />
+                            {type}
+                          </label>
+                        ))
+                      )}
+                    </fieldset>
+
+                    <fieldset className="flex flex-col gap-2 rounded-[22px] border border-amber-100/80 bg-amber-50/50 p-3">
+                      <legend className="px-1 text-xs font-semibold uppercase tracking-[0.2em] text-amber-400">その他</legend>
+                      <label className="flex items-center gap-2 text-sm text-amber-900/80">
+                        <input
+                          type="checkbox"
+                          checked={unwatchedOnly}
+                          onChange={(event) => setUnwatchedOnly(event.target.checked)}
+                          className="h-4 w-4 rounded border-amber-300 text-amber-400 accent-amber-400"
+                        />
+                        未視聴のみ
+                      </label>
+                    </fieldset>
+                  </div>
                 )}
-              </fieldset>
 
-              <fieldset className="flex flex-col gap-1 rounded-lg border border-slate-200 p-2">
-                <legend className="px-1 text-xs font-medium text-slate-500">その他</legend>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={unwatchedOnly}
-                    onChange={(event) => setUnwatchedOnly(event.target.checked)}
-                  />
-                  未視聴のみ
-                </label>
-              </fieldset>
-
+                <p className="text-sm font-medium text-rose-600/80">
+                  {visibleItems.length}件 / 全{mediaItems.length}件
+                </p>
+              </div>
             </div>
+          </section>
+
+          <ul className="grid list-none grid-cols-1 gap-5 px-4 pb-6 pt-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {visibleItems.map((item) => (
+              <MediaCard
+                key={item.id}
+                item={item}
+                summary={mediaSummariesById[item.id]}
+                onSelect={setSelectedItem}
+              />
+            ))}
+          </ul>
+
+          {visibleItems.length === 0 && (
+            <div className="px-4 pb-8 text-sm font-medium text-rose-500/80">条件に一致するメディアがありません。</div>
           )}
-
-          <p className="text-sm text-slate-500">
-            {visibleItems.length}件 / 全{mediaItems.length}件
-          </p>
         </div>
-      </section>
-
-      <ul className="grid list-none grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {visibleItems.map((item) => (
-          <MediaCard
-            key={item.id}
-            item={item}
-            summary={mediaSummariesById[item.id]}
-            onSelect={setSelectedItem}
-          />
-        ))}
-      </ul>
-
-      {visibleItems.length === 0 && (
-        <div className="px-4 pb-8 text-sm text-slate-500">条件に一致するメディアがありません。</div>
-      )}
+      </div>
       <dialog
         ref={dialogRef}
         onClose={handleClose}
-        className="box-border m-0 h-screen max-h-screen w-screen max-w-screen border-none p-0"
+        className="box-border m-0 h-screen max-h-screen w-screen max-w-screen border-none bg-transparent p-3 md:p-5"
       >
-        <div className="flex h-full w-full flex-col">
-          <header className="flex items-center gap-2 p-2">
-            <button onClick={handleClose}>Close</button>
-            <h3 className="m-0">{selectedItem?.title}</h3>
-            <button onClick={handlePlay}>Play</button>
+        <div className="flex h-full w-full flex-col overflow-hidden rounded-[34px] border border-white/70 bg-[linear-gradient(180deg,rgba(255,253,255,0.97),rgba(255,247,242,0.95))] shadow-[0_30px_80px_rgba(177,134,158,0.28)]">
+          <header className="flex items-center gap-2 border-b border-rose-100/80 bg-white/70 p-3 backdrop-blur-sm md:p-4">
+            <button
+              onClick={handleClose}
+              className="rounded-full border border-rose-200 bg-white px-3 py-1.5 text-sm font-semibold text-rose-700 shadow-sm hover:-translate-y-0.5 hover:border-rose-300"
+            >
+              Close
+            </button>
+            <h3 className="min-w-0 flex-1 truncate text-base font-bold text-rose-950/85 md:text-lg">
+              {selectedItem?.title}
+            </h3>
+            <button
+              onClick={handlePlay}
+              className="rounded-full border border-amber-200 bg-gradient-to-b from-amber-50 to-orange-50 px-4 py-1.5 text-sm font-semibold text-amber-700 shadow-sm hover:-translate-y-0.5 hover:border-amber-300"
+            >
+              Play
+            </button>
           </header>
-          <div className="flex flex-1">
-            <main className="min-w-0 flex-1">
-              {selectedItem && (
-                <video
-                  src={`/api/video/${selectedItem.id}/stream`}
-                  controls
-                  autoPlay
-                  className="block min-h-0 w-full h-full bg-black"
-                />
-              )}
+          <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+            <main className="min-w-0 flex-1 bg-[#2f2235] p-2 md:p-3">
+              <div className="h-full overflow-hidden rounded-[26px] bg-black shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
+                {selectedItem && (
+                  <video
+                    src={`/api/video/${selectedItem.id}/stream`}
+                    controls
+                    autoPlay
+                    className="block h-full min-h-0 w-full bg-black"
+                  />
+                )}
+              </div>
             </main>
-            <aside className="w-64 border-l p-4 overflow-y-auto">
+            <aside className="cute-scrollbar w-full overflow-y-auto border-t border-rose-100/80 bg-white/72 p-4 md:w-72 md:border-l md:border-t-0 md:p-5">
               {selectedDetail && (
-                <dl className="space-y-2">
-                  <div>
-                    <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">日時</dt>
-                    <dd>{formatDateTime(selectedDetail.date)}</dd>
+                <dl className="space-y-3">
+                  <div className="rounded-[22px] border border-rose-100/75 bg-rose-50/55 p-3">
+                    <dt className="mb-1 text-xs font-semibold uppercase tracking-[0.2em] text-rose-400">日時</dt>
+                    <dd className="text-sm text-rose-950/80">{formatDateTime(selectedDetail.date)}</dd>
                   </div>
-                  <div>
-                    <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">種別</dt>
-                    <dd>{selectedDetail.type ?? "未設定"}</dd>
+                  <div className="rounded-[22px] border border-rose-100/75 bg-white/75 p-3">
+                    <dt className="mb-1 text-xs font-semibold uppercase tracking-[0.2em] text-rose-400">種別</dt>
+                    <dd className="text-sm text-rose-950/80">{selectedDetail.type ?? "未設定"}</dd>
                   </div>
-                  <div>
-                    <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">再生時間</dt>
-                    <dd>{formatDuration(selectedDetail.duration)}</dd>
+                  <div className="rounded-[22px] border border-amber-100/80 bg-amber-50/55 p-3">
+                    <dt className="mb-1 text-xs font-semibold uppercase tracking-[0.2em] text-amber-400">再生時間</dt>
+                    <dd className="text-sm text-amber-950/80">{formatDuration(selectedDetail.duration)}</dd>
                   </div>
-                  <div>
-                    <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">レート</dt>
+                  <div className="rounded-[22px] border border-rose-100/75 bg-white/75 p-3">
+                    <dt className="mb-1 text-xs font-semibold uppercase tracking-[0.2em] text-rose-400">レート</dt>
                     <dd>{selectedDetail.rate != null ? <RatingHearts rate={selectedDetail.rate} /> : "未設定"}</dd>
                   </div>
-                  <div>
-                    <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">タグ</dt>
-                    <dd>{selectedDetail.tags ?? "未設定"}</dd>
+                  <div className="rounded-[22px] border border-amber-100/80 bg-amber-50/55 p-3">
+                    <dt className="mb-1 text-xs font-semibold uppercase tracking-[0.2em] text-amber-400">タグ</dt>
+                    <dd className="text-sm text-amber-950/80">{selectedDetail.tags ?? "未設定"}</dd>
                   </div>
                 </dl>
               )}
