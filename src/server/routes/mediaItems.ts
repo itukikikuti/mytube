@@ -19,10 +19,11 @@ router.get("/summary", (req, res) => {
          media_items.duration,
          media_items.rate,
          media_items.tags,
+         history_stats.last_played_at AS lastPlayedAt,
          COALESCE(history_stats.play_count, 0) AS playCount
        FROM media_items
        LEFT JOIN (
-         SELECT media, COUNT(*) AS play_count
+         SELECT media, COUNT(*) AS play_count, MAX(date) AS last_played_at
          FROM history_items
          GROUP BY media
        ) AS history_stats ON history_stats.media = media_items.id`,
@@ -43,10 +44,11 @@ router.get("/:id", (req, res) => {
     .prepare(
       `SELECT
          media_items.*,
+         history_stats.last_played_at AS lastPlayedAt,
          COALESCE(history_stats.play_count, 0) AS playCount
        FROM media_items
        LEFT JOIN (
-         SELECT media, COUNT(*) AS play_count
+         SELECT media, COUNT(*) AS play_count, MAX(date) AS last_played_at
          FROM history_items
          GROUP BY media
        ) AS history_stats ON history_stats.media = media_items.id

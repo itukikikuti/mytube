@@ -9,6 +9,7 @@ type MediaSummary = MediaItem & {
   duration?: number;
   rate?: number;
   tags?: string;
+  lastPlayedAt?: number;
   playCount?: number;
 };
 
@@ -19,11 +20,22 @@ type MediaDetail = MediaSummary & {
 type SortKey =
   | "dateDesc"
   | "dateAsc"
+  | "recentPlayDesc"
   | "durationDesc"
   | "durationAsc"
   | "rateDesc"
   | "playCountDesc"
+  | "shuffle"
   | "titleAsc";
+
+function shuffleRank(id: number, seed: number) {
+  let value = id ^ (seed + 1);
+
+  value = Math.imul(value ^ (value >>> 16), 0x45d9f3b);
+  value = Math.imul(value ^ (value >>> 16), 0x45d9f3b);
+
+  return (value ^ (value >>> 16)) >>> 0;
+}
 
 function parseThumbs(thumbs?: string) {
   if (!thumbs) return [];
@@ -249,6 +261,7 @@ function App() {
   const [draftMinRate, setDraftMinRate] = useState<number>(0);
   const [draftSelectedTypes, setDraftSelectedTypes] = useState<string[]>([]);
   const [draftUnwatchedOnly, setDraftUnwatchedOnly] = useState(false);
+  const [shuffleVersion, setShuffleVersion] = useState(0);
 
   const [showFilters, setShowFilters] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -300,6 +313,8 @@ function App() {
       switch (sortKey) {
         case "dateAsc":
           return num(summaryA?.date) - num(summaryB?.date);
+        case "recentPlayDesc":
+          return num(summaryB?.lastPlayedAt) - num(summaryA?.lastPlayedAt);
         case "durationDesc":
           return num(summaryB?.duration) - num(summaryA?.duration);
         case "durationAsc":
@@ -308,6 +323,12 @@ function App() {
           return num(summaryB?.rate) - num(summaryA?.rate);
         case "playCountDesc":
           return num(summaryB?.playCount) - num(summaryA?.playCount);
+        case "shuffle": {
+          const rankA = shuffleRank(a.id, shuffleVersion);
+          const rankB = shuffleRank(b.id, shuffleVersion);
+
+          return rankA - rankB || a.id - b.id;
+        }
         case "titleAsc":
           return a.title.localeCompare(b.title, "ja");
         case "dateDesc":
@@ -315,7 +336,7 @@ function App() {
           return num(summaryB?.date) - num(summaryA?.date);
       }
     });
-  }, [mediaItems, mediaSummariesById, minRate, query, selectedTypes, sortKey, unwatchedOnly]);
+  }, [mediaItems, mediaSummariesById, minRate, query, selectedTypes, shuffleVersion, sortKey, unwatchedOnly]);
 
   useEffect(() => {
     fetch("/api/media-items/summary")
@@ -359,14 +380,42 @@ function App() {
 
   function handlePlay() {
     if (!selectedItem) return;
+
+    const playedAt = Math.floor(Date.now() / 1000);
+
     fetch("/api/history-items", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         media: selectedItem.id,
-        date: Math.floor(Date.now() / 1000),
+        date: playedAt,
       }),
     });
+
+    setMediaSummariesById((current) => {
+      const summary = current[selectedItem.id];
+
+      if (!summary) return current;
+
+      return {
+        ...current,
+        [selectedItem.id]: {
+          ...summary,
+          lastPlayedAt: playedAt,
+          playCount: (summary.playCount ?? 0) + 1,
+        },
+      };
+    });
+
+    setSelectedDetail((current) =>
+      current
+        ? {
+            ...current,
+            lastPlayedAt: playedAt,
+            playCount: (current.playCount ?? 0) + 1,
+          }
+        : current,
+    );
   }
 
   const hasDraftChanges =
@@ -383,6 +432,10 @@ function App() {
     setMinRate(draftMinRate);
     setSelectedTypes(draftSelectedTypes);
     setUnwatchedOnly(draftUnwatchedOnly);
+
+    if (draftSortKey === "shuffle") {
+      setShuffleVersion((current) => current + 1);
+    }
   }
 
   function toggleType(type: string) {
@@ -428,10 +481,12 @@ function App() {
                     >
                       <option value="dateDesc">新しい順</option>
                       <option value="dateAsc">古い順</option>
+                      <option value="recentPlayDesc">最近再生した順</option>
                       <option value="durationDesc">長い順</option>
                       <option value="durationAsc">短い順</option>
                       <option value="rateDesc">レート高い順</option>
                       <option value="playCountDesc">再生回数順</option>
+                      <option value="shuffle">シャッフル</option>
                       <option value="titleAsc">タイトル順</option>
                     </select>
                   </div>
