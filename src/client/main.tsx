@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import VideoPlayer, { type VideoPlayerHandle } from "./components/VideoPlayer";
 
 type MediaItem = { id: number; title: string };
 
@@ -247,6 +248,10 @@ function App() {
   const [mediaSummariesById, setMediaSummariesById] = useState<Record<number, MediaSummary>>({});
   const [selectedItem, setSelectedItem] = useState<MediaItem | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<MediaDetail | null>(null);
+  const playerRef = useRef<VideoPlayerHandle>(null);
+  const modalWheelLockRef = useRef<number | null>(null);
+  const playHistoryRecordedRef = useRef<number | null>(null);
+  const modalContentRef = useRef<HTMLDivElement>(null);
 
   // 適用済みのフィルタ条件（visibleItems の算出に使う）
   const [query, setQuery] = useState("");
@@ -351,6 +356,7 @@ function App() {
 
   useEffect(() => {
     if (selectedItem) {
+      playHistoryRecordedRef.current = null;
       dialogRef.current?.showModal();
       document.body.style.overflow = "hidden";
     } else {
@@ -361,6 +367,14 @@ function App() {
       document.body.style.overflow = "";
     };
   }, [selectedItem]);
+
+  useEffect(() => {
+    return () => {
+      if (modalWheelLockRef.current != null) {
+        window.clearTimeout(modalWheelLockRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!selectedItem) {
@@ -378,8 +392,11 @@ function App() {
     setSelectedItem(null);
   }
 
-  function handlePlay() {
+  function recordPlayHistory() {
     if (!selectedItem) return;
+    if (playHistoryRecordedRef.current === selectedItem.id) return;
+
+    playHistoryRecordedRef.current = selectedItem.id;
 
     const playedAt = Math.floor(Date.now() / 1000);
 
@@ -417,6 +434,44 @@ function App() {
         : current,
     );
   }
+
+  function handlePlay() {
+    playerRef.current?.togglePlay();
+  }
+
+  const handleModalWheel = useCallback((event: WheelEvent) => {
+    if (!selectedItem) return;
+
+    const target = event.target as HTMLElement | null;
+    if (target?.closest("input, select, textarea, button, [contenteditable='true']")) {
+      return;
+    }
+
+    const delta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
+    if (!delta) return;
+
+    event.preventDefault();
+
+    if (modalWheelLockRef.current != null) {
+      return;
+    }
+
+    playerRef.current?.seekBy(delta >= 0 ? -5 : 5);
+
+    modalWheelLockRef.current = window.setTimeout(() => {
+      modalWheelLockRef.current = null;
+    }, 120);
+  }, [selectedItem]);
+
+  useEffect(() => {
+    const element = modalContentRef.current;
+    if (!element) return;
+
+    element.addEventListener("wheel", handleModalWheel, { passive: false });
+    return () => {
+      element.removeEventListener("wheel", handleModalWheel);
+    };
+  }, [handleModalWheel]);
 
   const hasDraftChanges =
     draftQuery !== query ||
@@ -598,7 +653,10 @@ function App() {
         onClose={handleClose}
         className="box-border m-0 h-screen max-h-screen w-screen max-w-screen border-none bg-transparent p-3 md:p-5"
       >
-        <div className="flex h-full w-full flex-col overflow-hidden rounded-[34px] border border-white/70 bg-[linear-gradient(180deg,rgba(255,253,255,0.97),rgba(255,247,242,0.95))] shadow-[0_30px_80px_rgba(177,134,158,0.28)]">
+        <div
+          ref={modalContentRef}
+          className="flex h-full w-full flex-col overflow-hidden rounded-[34px] border border-white/70 bg-[linear-gradient(180deg,rgba(255,253,255,0.97),rgba(255,247,242,0.95))] shadow-[0_30px_80px_rgba(177,134,158,0.28)]"
+        >
           <header className="flex items-center gap-2 border-b border-rose-100/80 bg-white/70 p-3 backdrop-blur-sm md:p-4">
             <button
               onClick={handleClose}
@@ -620,11 +678,11 @@ function App() {
             <main className="min-w-0 flex-1 bg-[#2f2235] p-2 md:p-3">
               <div className="h-full overflow-hidden rounded-[26px] bg-black shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
                 {selectedItem && (
-                  <video
+                  <VideoPlayer
+                    ref={playerRef}
                     src={`/api/video/${selectedItem.id}/stream`}
-                    controls
-                    autoPlay
-                    className="block h-full min-h-0 w-full bg-black"
+                    title={selectedItem.title}
+                    onFirstPlay={recordPlayHistory}
                   />
                 )}
               </div>
