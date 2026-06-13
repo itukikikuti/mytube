@@ -8,6 +8,30 @@ router.get("/", (req, res) => {
   res.json(rows);
 });
 
+router.get("/summary", (req, res) => {
+  const rows = db
+    .prepare(
+      `SELECT
+         media_items.id,
+         media_items.title,
+         media_items.date,
+         media_items.type,
+         media_items.duration,
+         media_items.rate,
+         media_items.tags,
+         COALESCE(history_stats.play_count, 0) AS playCount
+       FROM media_items
+       LEFT JOIN (
+         SELECT media, COUNT(*) AS play_count
+         FROM history_items
+         GROUP BY media
+       ) AS history_stats ON history_stats.media = media_items.id`,
+    )
+    .all();
+
+  res.json(rows);
+});
+
 router.get("/:id", (req, res) => {
   const id = Number(req.params.id);
 
