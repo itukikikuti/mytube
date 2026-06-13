@@ -235,11 +235,21 @@ function App() {
   const [mediaSummariesById, setMediaSummariesById] = useState<Record<number, MediaSummary>>({});
   const [selectedItem, setSelectedItem] = useState<MediaItem | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<MediaDetail | null>(null);
+
+  // 適用済みのフィルタ条件（visibleItems の算出に使う）
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("dateDesc");
   const [minRate, setMinRate] = useState<number>(0);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [unwatchedOnly, setUnwatchedOnly] = useState(false);
+
+  // 編集中の下書き条件（入力欄にバインド）
+  const [draftQuery, setDraftQuery] = useState("");
+  const [draftSortKey, setDraftSortKey] = useState<SortKey>("dateDesc");
+  const [draftMinRate, setDraftMinRate] = useState<number>(0);
+  const [draftSelectedTypes, setDraftSelectedTypes] = useState<string[]>([]);
+  const [draftUnwatchedOnly, setDraftUnwatchedOnly] = useState(false);
+
   const [showFilters, setShowFilters] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -359,13 +369,34 @@ function App() {
     });
   }
 
+  const hasDraftChanges =
+    draftQuery !== query ||
+    draftSortKey !== sortKey ||
+    draftMinRate !== minRate ||
+    draftUnwatchedOnly !== unwatchedOnly ||
+    draftSelectedTypes.length !== selectedTypes.length ||
+    draftSelectedTypes.some((t) => !selectedTypes.includes(t));
+
+  function applyFilters() {
+    setQuery(draftQuery);
+    setSortKey(draftSortKey);
+    setMinRate(draftMinRate);
+    setSelectedTypes(draftSelectedTypes);
+    setUnwatchedOnly(draftUnwatchedOnly);
+  }
+
   function toggleType(type: string) {
-    setSelectedTypes((current) =>
+    setDraftSelectedTypes((current) =>
       current.includes(type) ? current.filter((value) => value !== type) : [...current, type],
     );
   }
 
   function resetFilters() {
+    setDraftQuery("");
+    setDraftSortKey("dateDesc");
+    setDraftMinRate(0);
+    setDraftSelectedTypes([]);
+    setDraftUnwatchedOnly(false);
     setQuery("");
     setSortKey("dateDesc");
     setMinRate(0);
@@ -384,14 +415,15 @@ function App() {
                   <div className="flex flex-1 flex-col gap-2 sm:flex-row">
                     <input
                       type="search"
-                      value={query}
-                      onChange={(event) => setQuery(event.target.value)}
+                      value={draftQuery}
+                      onChange={(event) => setDraftQuery(event.target.value)}
+                      onKeyDown={(event) => { if (event.key === "Enter") applyFilters(); }}
                       placeholder="タイトルで検索"
                       className="w-full rounded-full border border-rose-200/80 bg-white/90 px-4 py-2.5 text-sm text-rose-950/80 outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
                     />
                     <select
-                      value={sortKey}
-                      onChange={(event) => setSortKey(event.target.value as SortKey)}
+                      value={draftSortKey}
+                      onChange={(event) => setDraftSortKey(event.target.value as SortKey)}
                       className="rounded-full border border-rose-200/80 bg-white/90 px-4 py-2.5 text-sm text-rose-950/80 outline-none focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
                     >
                       <option value="dateDesc">新しい順</option>
@@ -406,6 +438,17 @@ function App() {
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
+                      onClick={applyFilters}
+                      className={`rounded-full border px-4 py-2.5 text-sm font-semibold shadow-sm transition hover:-translate-y-0.5 ${
+                        hasDraftChanges
+                          ? "border-rose-400 bg-gradient-to-b from-rose-400 to-rose-500 text-white hover:border-rose-500"
+                          : "border-rose-200/90 bg-gradient-to-b from-white to-rose-50 text-rose-700 hover:border-rose-300"
+                      }`}
+                    >
+                      {hasDraftChanges ? "● 適用" : "適用"}
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setShowFilters((current) => !current)}
                       className="rounded-full border border-rose-200/90 bg-gradient-to-b from-white to-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 shadow-sm hover:-translate-y-0.5 hover:border-rose-300"
                     >
@@ -414,7 +457,7 @@ function App() {
                     <button
                       type="button"
                       onClick={resetFilters}
-                      disabled={!hasActiveFilters}
+                      disabled={!hasActiveFilters && !hasDraftChanges}
                       className="rounded-full border border-amber-200/90 bg-gradient-to-b from-white to-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-700 shadow-sm hover:-translate-y-0.5 hover:border-amber-300 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       リセット
@@ -427,8 +470,8 @@ function App() {
                     <label className="flex flex-col gap-1.5 rounded-[22px] border border-rose-100/70 bg-rose-50/45 p-3 text-sm font-medium text-rose-800/85">
                       レート
                       <select
-                        value={minRate}
-                        onChange={(event) => setMinRate(Number(event.target.value))}
+                        value={draftMinRate}
+                        onChange={(event) => setDraftMinRate(Number(event.target.value))}
                         className="rounded-full border border-rose-200/80 bg-white/90 px-3 py-2 text-sm font-normal text-rose-950/80 outline-none focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
                       >
                         <option value={0}>指定なし</option>
@@ -447,7 +490,7 @@ function App() {
                           <label key={type} className="flex items-center gap-2 text-sm text-rose-900/80">
                             <input
                               type="checkbox"
-                              checked={selectedTypes.includes(type)}
+                              checked={draftSelectedTypes.includes(type)}
                               onChange={() => toggleType(type)}
                               className="h-4 w-4 rounded border-rose-300 text-rose-400 accent-rose-400"
                             />
@@ -462,8 +505,8 @@ function App() {
                       <label className="flex items-center gap-2 text-sm text-amber-900/80">
                         <input
                           type="checkbox"
-                          checked={unwatchedOnly}
-                          onChange={(event) => setUnwatchedOnly(event.target.checked)}
+                          checked={draftUnwatchedOnly}
+                          onChange={(event) => setDraftUnwatchedOnly(event.target.checked)}
                           className="h-4 w-4 rounded border-amber-300 text-amber-400 accent-amber-400"
                         />
                         未視聴のみ
