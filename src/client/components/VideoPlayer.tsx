@@ -1,4 +1,14 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import {
+  FiFastForward,
+  FiMaximize,
+  FiMinimize,
+  FiPause,
+  FiPlay,
+  FiRewind,
+  FiVolume2,
+  FiVolumeX,
+} from "react-icons/fi";
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -384,7 +394,9 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
         >
           <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-white/80">
             <span className="rounded-full bg-white/10 px-2 py-1 font-semibold">
-              {isPlaying ? "再生中" : "停止中"}
+              <span className="inline-flex items-center">
+                {isPlaying ? <FiPause size={12} aria-hidden="true" /> : <FiPlay size={12} aria-hidden="true" />}
+              </span>
             </span>
             <span className="rounded-full bg-white/10 px-2 py-1 font-semibold">
               {formatTime(displayedTime)} / {formatTime(duration)}
@@ -412,28 +424,31 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
             <button
               type="button"
               onClick={togglePlay}
-              className="min-h-11 rounded-full bg-white/14 px-4 py-2 text-sm font-semibold text-white hover:bg-white/20"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white/14 px-3 py-2 text-sm font-semibold text-white hover:bg-white/20"
               aria-label={isPlaying ? "一時停止" : "再生"}
+              title={isPlaying ? "一時停止" : "再生"}
             >
-              {isPlaying ? "一時停止" : "再生"}
+              {isPlaying ? <FiPause size={18} aria-hidden="true" /> : <FiPlay size={18} aria-hidden="true" />}
             </button>
 
             <button
               type="button"
               onClick={() => seekTo(currentTime - 10)}
-              className="min-h-11 rounded-full bg-white/14 px-3.5 py-2 text-sm font-semibold text-white hover:bg-white/20"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white/14 px-3 py-2 text-sm font-semibold text-white hover:bg-white/20"
               aria-label="10秒戻る"
+              title="10秒戻る"
             >
-              -10s
+              <FiRewind size={18} aria-hidden="true" />
             </button>
 
             <button
               type="button"
               onClick={() => seekTo(currentTime + 10)}
-              className="min-h-11 rounded-full bg-white/14 px-3.5 py-2 text-sm font-semibold text-white hover:bg-white/20"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white/14 px-3 py-2 text-sm font-semibold text-white hover:bg-white/20"
               aria-label="10秒進む"
+              title="10秒進む"
             >
-              +10s
+              <FiFastForward size={18} aria-hidden="true" />
             </button>
 
             <button
@@ -443,10 +458,11 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                   videoRef.current.muted = !videoRef.current.muted;
                 }
               }}
-              className="min-h-11 rounded-full bg-white/14 px-3.5 py-2 text-sm font-semibold text-white hover:bg-white/20"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white/14 px-3 py-2 text-sm font-semibold text-white hover:bg-white/20"
               aria-label={isMuted ? "ミュート解除" : "ミュート"}
+              title={isMuted ? "ミュート解除" : "ミュート"}
             >
-              {isMuted ? "音OFF" : "音ON"}
+              {isMuted ? <FiVolumeX size={18} aria-hidden="true" /> : <FiVolume2 size={18} aria-hidden="true" />}
             </button>
 
             <label className="flex min-h-11 items-center gap-2 rounded-full bg-white/10 px-3.5 py-2 text-sm font-semibold text-white/90">
@@ -493,10 +509,11 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
             <button
               type="button"
               onClick={() => void toggleFullscreen()}
-              className="min-h-11 rounded-full bg-white/14 px-3.5 py-2 text-sm font-semibold text-white hover:bg-white/20"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white/14 px-3 py-2 text-sm font-semibold text-white hover:bg-white/20"
               aria-label={isFullscreen ? "全画面解除" : "全画面"}
+              title={isFullscreen ? "全画面解除" : "全画面"}
             >
-              {isFullscreen ? "縮小" : "全画面"}
+              {isFullscreen ? <FiMinimize size={18} aria-hidden="true" /> : <FiMaximize size={18} aria-hidden="true" />}
             </button>
           </div>
         </div>

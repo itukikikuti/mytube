@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { FiChevronDown, FiChevronUp } from "react-icons/fi";
 import VideoPlayer, { type VideoPlayerHandle } from "./components/VideoPlayer";
 
 type MediaItem = { id: number; title: string };
@@ -560,9 +561,11 @@ function App() {
                     <button
                       type="button"
                       onClick={() => setShowFilters((current) => !current)}
-                      className="min-h-11 rounded-full border border-rose-200/90 bg-gradient-to-b from-white to-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 shadow-sm hover:-translate-y-0.5 hover:border-rose-300"
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-rose-200/90 bg-gradient-to-b from-white to-rose-50 px-3 py-2.5 text-sm font-semibold text-rose-700 shadow-sm hover:-translate-y-0.5 hover:border-rose-300"
+                      aria-label={showFilters ? "詳細フィルタを閉じる" : "詳細フィルタを開く"}
+                      title={showFilters ? "詳細フィルタを閉じる" : "詳細フィルタを開く"}
                     >
-                      {showFilters ? "詳細フィルタを閉じる" : "詳細フィルタ"}
+                      {showFilters ? <FiChevronUp size={18} aria-hidden="true" /> : <FiChevronDown size={18} aria-hidden="true" />}
                     </button>
                     <button
                       type="button"
