@@ -13,6 +13,7 @@
 }
 
 html {
+	font-size: 16px;
 	background:
 		radial-gradient(circle at top left, rgba(255, 190, 220, 0.45), transparent 34%),
 		radial-gradient(circle at top right, rgba(255, 231, 174, 0.5), transparent 30%),
@@ -46,6 +47,7 @@ body::before {
 #root {
 	position: relative;
 	min-height: 100vh;
+	overflow-x: clip;
 }
 
 button,
@@ -122,4 +124,26 @@ dialog::backdrop {
 .cute-scrollbar::-webkit-scrollbar-thumb {
 	background: linear-gradient(180deg, rgba(255, 184, 214, 0.95), rgba(255, 210, 159, 0.95));
 	border-radius: 999px;
+}
+
+@media (max-width: 430px) {
+	html {
+		font-size: 15px;
+	}
+
+	body::before {
+		opacity: 0.35;
+	}
+
+	.app-shell::before,
+	.app-shell::after {
+		width: 220px;
+		height: 220px;
+	}
+}
+
+@media (max-width: 360px) {
+	html {
+		font-size: 14px;
+	}
 }

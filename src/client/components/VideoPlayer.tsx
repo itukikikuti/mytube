@@ -377,9 +377,9 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
         </div>
       )}
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/72 via-black/28 to-transparent px-3 pb-3 pt-10 md:px-4 md:pb-4">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/72 via-black/28 to-transparent px-2.5 pb-2.5 pt-10 sm:px-3 sm:pb-3 md:px-4 md:pb-4">
         <div
-          className="pointer-events-auto rounded-[18px] border border-white/10 bg-white/7 px-2.5 py-2.5 text-white shadow-[0_10px_28px_rgba(0,0,0,0.18)] backdrop-blur-md transition-opacity duration-200"
+          className="pointer-events-auto rounded-[16px] border border-white/10 bg-white/7 px-2 py-2.5 text-white shadow-[0_10px_28px_rgba(0,0,0,0.18)] backdrop-blur-md transition-opacity duration-200 sm:rounded-[18px] sm:px-2.5"
           style={{ opacity: controlsBoosted || isSeeking ? 1 : 0.56 }}
         >
           <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-white/80">
@@ -405,14 +405,14 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
               seekTo((duration * nextProgress) / 100);
             }}
             aria-label="再生位置"
-            className="mb-3 h-2 w-full cursor-pointer appearance-none rounded-full bg-white/20 accent-white"
+            className="mb-3 h-2.5 w-full cursor-pointer appearance-none rounded-full bg-white/20 accent-white"
           />
 
-          <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={togglePlay}
-              className="rounded-full bg-white/14 px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-white/20"
+              className="min-h-11 rounded-full bg-white/14 px-4 py-2 text-sm font-semibold text-white hover:bg-white/20"
               aria-label={isPlaying ? "一時停止" : "再生"}
             >
               {isPlaying ? "一時停止" : "再生"}
@@ -421,7 +421,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
             <button
               type="button"
               onClick={() => seekTo(currentTime - 10)}
-              className="rounded-full bg-white/14 px-3 py-1.5 text-sm font-semibold text-white hover:bg-white/20"
+              className="min-h-11 rounded-full bg-white/14 px-3.5 py-2 text-sm font-semibold text-white hover:bg-white/20"
               aria-label="10秒戻る"
             >
               -10s
@@ -430,7 +430,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
             <button
               type="button"
               onClick={() => seekTo(currentTime + 10)}
-              className="rounded-full bg-white/14 px-3 py-1.5 text-sm font-semibold text-white hover:bg-white/20"
+              className="min-h-11 rounded-full bg-white/14 px-3.5 py-2 text-sm font-semibold text-white hover:bg-white/20"
               aria-label="10秒進む"
             >
               +10s
@@ -443,13 +443,13 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                   videoRef.current.muted = !videoRef.current.muted;
                 }
               }}
-              className="rounded-full bg-white/14 px-3 py-1.5 text-sm font-semibold text-white hover:bg-white/20"
+              className="min-h-11 rounded-full bg-white/14 px-3.5 py-2 text-sm font-semibold text-white hover:bg-white/20"
               aria-label={isMuted ? "ミュート解除" : "ミュート"}
             >
               {isMuted ? "音OFF" : "音ON"}
             </button>
 
-            <label className="flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-sm font-semibold text-white/90">
+            <label className="flex min-h-11 items-center gap-2 rounded-full bg-white/10 px-3.5 py-2 text-sm font-semibold text-white/90">
               音量
               <input
                 type="range"
@@ -464,12 +464,12 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                     videoRef.current.muted = nextVolume === 0;
                   }
                 }}
-                className="h-2 w-24 cursor-pointer accent-white md:w-28"
+                className="h-2.5 w-20 cursor-pointer accent-white sm:w-24 md:w-28"
                 aria-label="音量"
               />
             </label>
 
-            <label className="flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-sm font-semibold text-white/90">
+            <label className="flex min-h-11 items-center gap-2 rounded-full bg-white/10 px-3.5 py-2 text-sm font-semibold text-white/90">
               速度
               <select
                 value={playbackRate}
@@ -493,7 +493,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
             <button
               type="button"
               onClick={() => void toggleFullscreen()}
-              className="rounded-full bg-white/14 px-3 py-1.5 text-sm font-semibold text-white hover:bg-white/20"
+              className="min-h-11 rounded-full bg-white/14 px-3.5 py-2 text-sm font-semibold text-white hover:bg-white/20"
               aria-label={isFullscreen ? "全画面解除" : "全画面"}
             >
               {isFullscreen ? "縮小" : "全画面"}

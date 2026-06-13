@@ -174,9 +174,9 @@ function MediaCard({
         ref={buttonRef}
         type="button"
         onClick={() => onSelect(item)}
-        className="group flex h-72 w-full cursor-pointer flex-col overflow-hidden rounded-[28px] border border-rose-200/70 bg-white/80 p-4 text-left shadow-[0_16px_40px_rgba(233,187,205,0.22)] backdrop-blur-sm transition hover:-translate-y-1 hover:border-rose-300/80 hover:shadow-[0_22px_50px_rgba(233,187,205,0.3)] focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
+        className="group flex min-h-[17rem] w-full cursor-pointer flex-col overflow-hidden rounded-[24px] border border-rose-200/70 bg-white/80 p-3 text-left shadow-[0_16px_40px_rgba(233,187,205,0.22)] backdrop-blur-sm transition hover:-translate-y-1 hover:border-rose-300/80 hover:shadow-[0_22px_50px_rgba(233,187,205,0.3)] focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 sm:h-72 sm:rounded-[28px] sm:p-4"
       >
-        <div className="relative mb-3 aspect-video w-full overflow-hidden rounded-[22px] bg-black ring-1 ring-white/70">
+        <div className="relative mb-2.5 aspect-video w-full overflow-hidden rounded-[18px] bg-black ring-1 ring-white/70 sm:mb-3 sm:rounded-[22px]">
           {thumbs.length > 0 ? (
             <>
               <div className="relative h-full w-full overflow-hidden">
@@ -221,7 +221,7 @@ function MediaCard({
           )}
         </div>
         <p
-          className="mb-3 flex-1 overflow-hidden text-base font-bold leading-6 text-rose-950/85"
+          className="mb-2.5 flex-1 overflow-hidden text-[0.98rem] font-bold leading-6 text-rose-950/85 sm:mb-3 sm:text-base"
           style={{
             display: "-webkit-box",
             WebkitLineClamp: 2,
@@ -516,8 +516,8 @@ function App() {
     <>
       <div className="app-shell">
         <div className="app-frame">
-          <section className="sticky top-0 z-10 px-4 py-4 backdrop-blur-md">
-            <div className="rounded-[32px] border border-white/70 bg-[rgba(255,255,255,0.72)] px-4 py-4 shadow-[0_18px_50px_rgba(232,192,206,0.28)] ring-1 ring-rose-100/70 md:px-5">
+          <section className="sticky top-0 z-10 px-3 py-3 backdrop-blur-md sm:px-4 sm:py-4">
+            <div className="rounded-[28px] border border-white/70 bg-[rgba(255,255,255,0.72)] px-3 py-3 shadow-[0_18px_50px_rgba(232,192,206,0.28)] ring-1 ring-rose-100/70 sm:rounded-[32px] sm:px-4 sm:py-4 md:px-5">
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                   <div className="flex flex-1 flex-col gap-2 sm:flex-row">
@@ -532,7 +532,7 @@ function App() {
                     <select
                       value={draftSortKey}
                       onChange={(event) => setDraftSortKey(event.target.value as SortKey)}
-                      className="rounded-full border border-rose-200/80 bg-white/90 px-4 py-2.5 text-sm text-rose-950/80 outline-none focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
+                      className="w-full rounded-full border border-rose-200/80 bg-white/90 px-4 py-2.5 text-sm text-rose-950/80 outline-none focus:border-rose-300 focus:ring-4 focus:ring-rose-100 sm:w-auto"
                     >
                       <option value="dateDesc">新しい順</option>
                       <option value="dateAsc">古い順</option>
@@ -545,11 +545,11 @@ function App() {
                       <option value="titleAsc">タイトル順</option>
                     </select>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
                     <button
                       type="button"
                       onClick={applyFilters}
-                      className={`rounded-full border px-4 py-2.5 text-sm font-semibold shadow-sm transition hover:-translate-y-0.5 ${
+                      className={`min-h-11 rounded-full border px-4 py-2.5 text-sm font-semibold shadow-sm transition hover:-translate-y-0.5 ${
                         hasDraftChanges
                           ? "border-rose-400 bg-gradient-to-b from-rose-400 to-rose-500 text-white hover:border-rose-500"
                           : "border-rose-200/90 bg-gradient-to-b from-white to-rose-50 text-rose-700 hover:border-rose-300"
@@ -560,7 +560,7 @@ function App() {
                     <button
                       type="button"
                       onClick={() => setShowFilters((current) => !current)}
-                      className="rounded-full border border-rose-200/90 bg-gradient-to-b from-white to-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 shadow-sm hover:-translate-y-0.5 hover:border-rose-300"
+                      className="min-h-11 rounded-full border border-rose-200/90 bg-gradient-to-b from-white to-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 shadow-sm hover:-translate-y-0.5 hover:border-rose-300"
                     >
                       {showFilters ? "詳細フィルタを閉じる" : "詳細フィルタ"}
                     </button>
@@ -568,7 +568,7 @@ function App() {
                       type="button"
                       onClick={resetFilters}
                       disabled={!hasActiveFilters && !hasDraftChanges}
-                      className="rounded-full border border-amber-200/90 bg-gradient-to-b from-white to-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-700 shadow-sm hover:-translate-y-0.5 hover:border-amber-300 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="min-h-11 rounded-full border border-amber-200/90 bg-gradient-to-b from-white to-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-700 shadow-sm hover:-translate-y-0.5 hover:border-amber-300 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       リセット
                     </button>
@@ -632,7 +632,7 @@ function App() {
             </div>
           </section>
 
-          <ul className="grid list-none grid-cols-1 gap-5 px-4 pb-6 pt-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <ul className="grid list-none grid-cols-1 gap-3 px-3 pb-6 pt-1 sm:grid-cols-2 sm:gap-5 sm:px-4 lg:grid-cols-3 xl:grid-cols-4">
             {visibleItems.map((item) => (
               <MediaCard
                 key={item.id}
@@ -651,25 +651,25 @@ function App() {
       <dialog
         ref={dialogRef}
         onClose={handleClose}
-        className="box-border m-0 h-screen max-h-screen w-screen max-w-screen border-none bg-transparent p-3 md:p-5"
+        className="box-border m-0 h-screen max-h-screen w-screen max-w-screen border-none bg-transparent p-2 sm:p-3 md:p-5"
       >
         <div
           ref={modalContentRef}
-          className="flex h-full w-full flex-col overflow-hidden rounded-[34px] border border-white/70 bg-[linear-gradient(180deg,rgba(255,253,255,0.97),rgba(255,247,242,0.95))] shadow-[0_30px_80px_rgba(177,134,158,0.28)]"
+          className="flex h-full w-full flex-col overflow-hidden rounded-[24px] border border-white/70 bg-[linear-gradient(180deg,rgba(255,253,255,0.97),rgba(255,247,242,0.95))] shadow-[0_30px_80px_rgba(177,134,158,0.28)] sm:rounded-[34px]"
         >
-          <header className="flex items-center gap-2 border-b border-rose-100/80 bg-white/70 p-3 backdrop-blur-sm md:p-4">
+          <header className="flex flex-wrap items-center gap-2 border-b border-rose-100/80 bg-white/70 p-2.5 backdrop-blur-sm sm:p-3 md:p-4">
             <button
               onClick={handleClose}
-              className="rounded-full border border-rose-200 bg-white px-3 py-1.5 text-sm font-semibold text-rose-700 shadow-sm hover:-translate-y-0.5 hover:border-rose-300"
+              className="min-h-11 rounded-full border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-700 shadow-sm hover:-translate-y-0.5 hover:border-rose-300"
             >
               Close
             </button>
-            <h3 className="min-w-0 flex-1 truncate text-base font-bold text-rose-950/85 md:text-lg">
+            <h3 className="order-first w-full min-w-0 truncate text-base font-bold text-rose-950/85 sm:order-none sm:w-auto sm:flex-1 md:text-lg">
               {selectedItem?.title}
             </h3>
             <button
               onClick={handlePlay}
-              className="rounded-full border border-amber-200 bg-gradient-to-b from-amber-50 to-orange-50 px-4 py-1.5 text-sm font-semibold text-amber-700 shadow-sm hover:-translate-y-0.5 hover:border-amber-300"
+              className="min-h-11 rounded-full border border-amber-200 bg-gradient-to-b from-amber-50 to-orange-50 px-4 py-2 text-sm font-semibold text-amber-700 shadow-sm hover:-translate-y-0.5 hover:border-amber-300"
             >
               Play
             </button>
@@ -687,7 +687,7 @@ function App() {
                 )}
               </div>
             </main>
-            <aside className="cute-scrollbar w-full overflow-y-auto border-t border-rose-100/80 bg-white/72 p-4 md:w-72 md:border-l md:border-t-0 md:p-5">
+            <aside className="cute-scrollbar w-full overflow-y-auto border-t border-rose-100/80 bg-white/72 p-3 sm:p-4 md:w-72 md:border-l md:border-t-0 md:p-5">
               {selectedDetail && (
                 <dl className="space-y-3">
                   <div className="rounded-[22px] border border-rose-100/75 bg-rose-50/55 p-3">
