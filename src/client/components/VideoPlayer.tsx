@@ -31,6 +31,12 @@ function formatTime(value: number) {
   return `${minutes}:${paddedSeconds}`;
 }
 
+function shouldIgnoreSwipeStart(target: EventTarget | null) {
+  if (!(target instanceof Element)) return false;
+
+  return Boolean(target.closest("input, button, select, textarea, label, a, [data-no-swipe]"));
+}
+
 export type VideoPlayerHandle = {
   seekBy: (deltaSeconds: number) => void;
   togglePlay: () => void;
@@ -130,6 +136,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
 
   function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
     if (event.pointerType !== "touch") return;
+    if (shouldIgnoreSwipeStart(event.target)) return;
 
     const video = videoRef.current;
     if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return;
@@ -377,6 +384,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/72 via-black/28 to-transparent px-2.5 pb-2.5 pt-10 sm:px-3 sm:pb-3 md:px-4 md:pb-4">
         <div
+          data-no-swipe
           className="pointer-events-auto rounded-[16px] border border-white/10 bg-white/7 px-2 py-2.5 text-white shadow-[0_10px_28px_rgba(0,0,0,0.18)] backdrop-blur-md transition-opacity duration-200 sm:rounded-[18px] sm:px-2.5"
           style={{ opacity: controlsBoosted || isSeeking ? 1 : 0.56 }}
         >
