@@ -51,6 +51,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const controlsTimerRef = useRef<number | null>(null);
+  const orientationLockRef = useRef(false);
   const swipeRef = useRef<{
     active: boolean;
     pointerId: number | null;
@@ -74,6 +75,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
   const [isMuted, setIsMuted] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isLandscapeVideo, setIsLandscapeVideo] = useState(false);
   const [controlsBoosted, setControlsBoosted] = useState(false);
   const [previewTime, setPreviewTime] = useState<number | null>(null);
   const [isSeeking, setIsSeeking] = useState(false);
@@ -132,6 +134,34 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
     } else {
       video.pause();
     }
+  }
+
+  function isMobileViewport() {
+    return window.matchMedia("(pointer: coarse) and (max-width: 767px)").matches;
+  }
+
+  async function lockLandscapeOrientation() {
+    if (!isMobileViewport() || !isLandscapeVideo) return;
+
+    const orientation = screen.orientation;
+    if (!orientation?.lock) return;
+
+    try {
+      await orientation.lock("landscape");
+      orientationLockRef.current = true;
+    } catch {
+      orientationLockRef.current = false;
+    }
+  }
+
+  function unlockLandscapeOrientation() {
+    const orientation = screen.orientation;
+
+    if (orientationLockRef.current && orientation?.unlock) {
+      orientation.unlock();
+    }
+
+    orientationLockRef.current = false;
   }
 
   function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
@@ -263,11 +293,13 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
     if (!container) return;
 
     if (document.fullscreenElement) {
+      unlockLandscapeOrientation();
       await document.exitFullscreen();
       return;
     }
 
     await container.requestFullscreen();
+    await lockLandscapeOrientation();
   }
 
   useEffect(() => {
@@ -290,6 +322,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
       setVolume(video.volume);
       setIsMuted(video.muted);
       setPlaybackRate(video.playbackRate);
+      setIsLandscapeVideo(video.videoWidth > 0 && video.videoHeight > 0 && video.videoWidth >= video.videoHeight);
       setIsFullscreen(document.fullscreenElement === containerRef.current);
     };
 
@@ -321,10 +354,20 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
   }, [src]);
 
   useEffect(() => {
+    if (!isFullscreen) {
+      unlockLandscapeOrientation();
+      return;
+    }
+
+    void lockLandscapeOrientation();
+  }, [isFullscreen, isLandscapeVideo]);
+
+  useEffect(() => {
     return () => {
       if (controlsTimerRef.current != null) {
         window.clearTimeout(controlsTimerRef.current);
       }
+      unlockLandscapeOrientation();
     };
   }, []);
 
