@@ -39,10 +39,9 @@ export type VideoPlayerHandle = {
 type VideoPlayerProps = {
   src: string;
   title: string;
-  onFirstPlay?: () => void;
 };
 
-const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function VideoPlayer({ src, title, onFirstPlay }, ref) {
+const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function VideoPlayer({ src, title }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const controlsTimerRef = useRef<number | null>(null);
@@ -74,7 +73,6 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
   const [isSeeking, setIsSeeking] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [swipePreviewLabel, setSwipePreviewLabel] = useState<string | null>(null);
-  const firstPlayReportedRef = useRef(false);
 
   const displayedTime = previewTime ?? currentTime;
   const progress = useMemo(() => {
@@ -128,13 +126,6 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
     } else {
       video.pause();
     }
-  }
-
-  function handlePlayStarted() {
-    if (firstPlayReportedRef.current) return;
-
-    firstPlayReportedRef.current = true;
-    onFirstPlay?.();
   }
 
   function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
@@ -293,7 +284,6 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
       setIsMuted(video.muted);
       setPlaybackRate(video.playbackRate);
       setIsFullscreen(document.fullscreenElement === containerRef.current);
-      firstPlayReportedRef.current = false;
     };
 
     const handleFullscreenChange = () => {
@@ -303,7 +293,6 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
     video.addEventListener("loadedmetadata", sync);
     video.addEventListener("timeupdate", sync);
     video.addEventListener("play", sync);
-    video.addEventListener("play", handlePlayStarted);
     video.addEventListener("pause", sync);
     video.addEventListener("volumechange", sync);
     video.addEventListener("ratechange", sync);
@@ -316,7 +305,6 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
       video.removeEventListener("loadedmetadata", sync);
       video.removeEventListener("timeupdate", sync);
       video.removeEventListener("play", sync);
-      video.removeEventListener("play", handlePlayStarted);
       video.removeEventListener("pause", sync);
       video.removeEventListener("volumechange", sync);
       video.removeEventListener("ratechange", sync);

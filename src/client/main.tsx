@@ -437,6 +437,7 @@ function App() {
   }
 
   function handlePlay() {
+    recordPlayHistory();
     playerRef.current?.togglePlay();
   }
 
@@ -685,7 +686,6 @@ function App() {
                     ref={playerRef}
                     src={`/api/video/${selectedItem.id}/stream`}
                     title={selectedItem.title}
-                    onFirstPlay={recordPlayHistory}
                   />
                 )}
               </div>
