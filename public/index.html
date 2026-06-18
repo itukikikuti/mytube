@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Hono + htmx Todo</title>
+    <link rel="stylesheet" href="/public/styles.css">
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="todo-panel" aria-labelledby="page-title">
+        <p class="eyebrow">Minimal sample</p>
+        <h1 id="page-title">Hono + htmx Todo</h1>
+
+        <form
+          id="todo-form"
+          class="todo-form"
+          hx-post="/todos"
+          hx-target="#todo-list"
+          hx-swap="beforeend"
+        >
+          <label for="title">Todo</label>
+          <div class="form-row">
+            <input id="title" name="title" type="text" placeholder="やることを入力" autocomplete="off" required>
+            <button type="submit">追加</button>
+          </div>
+        </form>
+
+        <ul
+          id="todo-list"
+          class="todo-list"
+          hx-get="/todos"
+          hx-trigger="load"
+          hx-swap="innerHTML"
+        >
+        </ul>
+      </section>
+    </main>
+
+    <script>
+      document.body.addEventListener('htmx:afterRequest', (event) => {
+        if (event.detail.elt?.id === 'todo-form' && event.detail.successful) {
+          event.detail.elt.reset()
+          event.detail.elt.querySelector('input')?.focus()
+        }
+      })
+    </script>
+  </body>
+</html>
