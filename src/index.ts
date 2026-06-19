@@ -39,7 +39,9 @@ const renderTodo = (todo: Todo) => `
 
 const renderTodos = () => todos.map(renderTodo).join('')
 
-app.use('/public/*', serveStatic({ root: './' }))
+app.use('/static/*', serveStatic({ root: './' }))
+
+app.get('/', serveStatic({ path: './static/index.html' }))
 
 app.get('/', serveStatic({ path: './public/index.html' }))
 
