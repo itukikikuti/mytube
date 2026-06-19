@@ -1,6 +1,9 @@
 import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { Hono } from 'hono'
+import Database from "better-sqlite3"
+
+const db: Database.Database = new Database("data/db.sqlite")
 
 type Todo = {
   id: number
@@ -43,7 +46,10 @@ app.use('/static/*', serveStatic({ root: './' }))
 
 app.get('/', serveStatic({ path: './static/index.html' }))
 
-app.get('/', serveStatic({ path: './public/index.html' }))
+app.get("/medias", (c) => {
+  const rows = db.prepare("SELECT id,title,date,type,duration,rate FROM media_items").all();
+  return c.json(rows);
+});
 
 app.get('/todos', (c) => c.html(renderTodos()))
 
