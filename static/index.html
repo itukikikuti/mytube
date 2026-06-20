@@ -3,48 +3,22 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Hono + htmx Todo</title>
+    <title>MyTube</title>
     <link rel="stylesheet" href="/static/styles.css">
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
   </head>
   <body>
-    <main class="app-shell">
-      <section class="todo-panel" aria-labelledby="page-title">
-        <p class="eyebrow">Minimal sample</p>
-        <h1 id="page-title">Hono + htmx Todo</h1>
+    <video id="media-player" controls></video>
 
-        <form
-          id="todo-form"
-          class="todo-form"
-          hx-post="/todos"
-          hx-target="#todo-list"
-          hx-swap="beforeend"
-        >
-          <label for="title">Todo</label>
-          <div class="form-row">
-            <input id="title" name="title" type="text" placeholder="やることを入力" autocomplete="off" required>
-            <button type="submit">追加</button>
-          </div>
-        </form>
-
-        <ul
-          id="todo-list"
-          class="todo-list"
-          hx-get="/todos"
-          hx-trigger="load"
-          hx-swap="innerHTML"
-        >
-        </ul>
-      </section>
-    </main>
+    <ul hx-get="/medias" hx-trigger="load"></ul>
 
     <script>
-      document.body.addEventListener('htmx:afterRequest', (event) => {
-        if (event.detail.elt?.id === 'todo-form' && event.detail.successful) {
-          event.detail.elt.reset()
-          event.detail.elt.querySelector('input')?.focus()
-        }
-      })
+      const mediaPlayer = document.getElementById('media-player');
+
+      function playVideo(src) {
+        mediaPlayer.src = src;
+        mediaPlayer.play();
+      }
     </script>
   </body>
 </html>
