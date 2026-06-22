@@ -1,0 +1,10 @@
+#media-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-auto-rows:240px;
+  gap: 8px;
+}
+
+#media-list li {
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
+}

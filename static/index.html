@@ -10,10 +10,83 @@
   <body>
     <video id="media-player" controls></video>
 
-    <ul hx-get="/medias" hx-trigger="load"></ul>
+    <ul id="media-list" hx-get="/medias" hx-trigger="load"></ul>
 
     <script>
       const mediaPlayer = document.getElementById('media-player');
+      const mediaList = document.getElementById('media-list');
+      const mediaRequests = new WeakMap();
+
+      // メディア枠が画面に入ったら詳細HTMLを読み込み、画面外へ出たら中身を捨てる。
+      const intersectionObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            loadMedia(entry.target);
+          } else {
+            // 画面外へ出た枠の読み込みが残っていれば中断する。
+            const controller = mediaRequests.get(entry.target);
+            if (controller) {
+              controller.abort();
+              mediaRequests.delete(entry.target);
+            }
+
+            entry.target.innerHTML = '';
+            entry.target.removeAttribute('data-loaded');
+            entry.target.removeAttribute('data-loading');
+          }
+        });
+      }, { threshold: 0 });
+
+      async function loadMedia(target) {
+        const mediaId = target.dataset.mediaId;
+
+        // IDなし、読み込み中、読み込み済みの枠は何もしない。
+        if (!mediaId || target.dataset.loading === 'true' || target.dataset.loaded === 'true') {
+          return;
+        }
+
+        // AbortControllerをWeakMapに持たせ、画面外へ出た時にfetchを止められるようにする。
+        const controller = new AbortController();
+        mediaRequests.set(target, controller);
+        target.dataset.loading = 'true';
+
+        try {
+          const response = await fetch(`/medias/${encodeURIComponent(mediaId)}`, {
+            signal: controller.signal,
+          });
+          if (!response.ok) {
+            throw new Error(`Failed to fetch media ${mediaId}`);
+          }
+
+          const html = await response.text();
+          if (controller.signal.aborted) {
+            return;
+          }
+
+          // /medias/:id が返したHTMLを、そのまま対象の枠へ差し込む。
+          target.innerHTML = html;
+          target.dataset.loaded = 'true';
+        } catch (error) {
+          if (error.name !== 'AbortError') {
+            console.error(error);
+          }
+        } finally {
+          if (mediaRequests.get(target) === controller) {
+            mediaRequests.delete(target);
+            target.removeAttribute('data-loading');
+          }
+        }
+      }
+
+      function observeListItems() {
+        mediaList.querySelectorAll('[data-media-id]').forEach(target => {
+          intersectionObserver.observe(target);
+        });
+      }
+
+      // htmxが /medias の一覧HTMLを差し込んだ後、新しく増えた枠も監視対象にする。
+      observeListItems();
+      mediaList.addEventListener('htmx:afterSwap', observeListItems);
 
       function playVideo(src) {
         mediaPlayer.src = src;
