@@ -84,3 +84,27 @@
     }
   }
 }
+
+#media-modal {
+  width: min(960px, 90vw);
+  padding: 0;
+  border: 0;
+  background: #000;
+}
+
+#media-modal::backdrop {
+  background: rgb(0 0 0 / 70%);
+}
+
+#media-modal-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+}
+
+#media-player {
+  display: block;
+  width: 100%;
+  max-height: 80vh;
+}

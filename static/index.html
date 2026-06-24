@@ -8,11 +8,16 @@
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
   </head>
   <body>
-    <video id="media-player" controls></video>
+    <dialog id="media-modal">
+      <button id="media-modal-close" type="button" aria-label="閉じる">×</button>
+      <video id="media-player" controls></video>
+    </dialog>
 
     <div id="media-list" hx-get="/medias" hx-trigger="load"></div>
 
     <script>
+      const mediaModal = document.getElementById('media-modal');
+      const mediaModalClose = document.getElementById('media-modal-close');
       const mediaPlayer = document.getElementById('media-player');
       const mediaList = document.getElementById('media-list');
       const mediaRequests = new WeakMap();
@@ -105,8 +110,16 @@
 
       function playVideo(src) {
         mediaPlayer.src = src;
+        mediaModal.showModal();
         mediaPlayer.play();
       }
+
+      mediaModalClose.addEventListener('click', () => mediaModal.close());
+      mediaModal.addEventListener('close', () => {
+        mediaPlayer.pause();
+        mediaPlayer.removeAttribute('src');
+        mediaPlayer.load();
+      });
     </script>
   </body>
 </html>
