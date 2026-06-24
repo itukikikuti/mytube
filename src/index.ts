@@ -7,17 +7,14 @@ import Database from "better-sqlite3"
 const mediaItemRowSchema = z.object({
   id: z.number(),
   title: z.string(),
-  date: z.number().transform((unixSeconds) =>
-    new Date(unixSeconds * 1000).toLocaleDateString()
-  ),
+  date: z.number().transform((unixSeconds) => new Date(unixSeconds * 1000).toLocaleDateString()),
   type: z.string(),
   duration: z.number(),
-  rate: z.number().transform((filledHearts) =>
-    `${'♥'.repeat(filledHearts)}${'♡'.repeat(5 - filledHearts)}`
-  ),
+  rate: z.number(),
+  thumbs: z.string().transform((json) => JSON.parse(json)).pipe(z.array(z.string())),
 })
 
-const mediaItemIdListSchema = z.array(mediaItemRowSchema.pick({ id: true, title: true }))
+const mediaItemIdListSchema = z.array(z.object({ id: z.number() }))
 
 const db: Database.Database = new Database("data/db.sqlite")
 
@@ -29,10 +26,10 @@ app.use('/videos/*', serveStatic({ root: './' }))
 app.get('/', serveStatic({ path: './static/index.html' }))
 
 app.get("/medias", (c) => {
-  const rows = mediaItemIdListSchema.parse(db.prepare("SELECT id,title FROM media_items").all())
+  const rows = mediaItemIdListSchema.parse(db.prepare("SELECT id FROM media_items").all())
 
   return c.html(rows.map((row) => `
-    <div id="media-${row.id}" class="media-item" data-media-id="${row.id}" onclick="playVideo('/videos/${encodeURIComponent(row.title)}')"></div>
+    <div id="media-${row.id}" class="media-item" data-media-id="${row.id}"></div>
   `).join(''))
 })
 
@@ -46,11 +43,24 @@ app.get("/medias/:id", (c) => {
   const mediaItem = mediaItemRowSchema.parse(row)
 
   return c.html(`
-    <div class="media-item-thumb"></div>
-    <p class="media-item-title">${mediaItem.title}</p>
-    <div class="media-item-meta">
-      <span>${mediaItem.date}</span>
-      <span>${mediaItem.rate}</span>
+    <div onclick="playVideo('/videos/${encodeURIComponent(mediaItem.title)}')">
+      <div class="media-item-thumb">
+        <div class="media-item-thumb-viewport">
+          <div class="media-item-thumb-track">
+            ${mediaItem.thumbs.map((thumb) => `<img src="data:image/jpeg;base64,${thumb}" alt="${mediaItem.title} thumbnail" class="media-item-thumb-image">`).join('')}
+          </div>
+        </div>
+        ${mediaItem.thumbs.length > 1 ? `
+          <div class="media-item-thumb-indicators">
+            ${mediaItem.thumbs.map((_, index) => `<div class="media-item-thumb-indicator${index === 0 ? ' is-active' : ''}"></div>`).join('')}
+          </div>
+        ` : ''}
+      </div>
+      <p class="media-item-title">${mediaItem.title}</p>
+      <div class="media-item-meta">
+        <span>${mediaItem.date}</span>
+        <span>${'♥'.repeat(mediaItem.rate)}${'♡'.repeat(5 - mediaItem.rate)}</span>
+      </div>
     </div>
   `)
 })
