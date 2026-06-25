@@ -88,8 +88,12 @@ app.get("/medias", (c) => {
   const rows = mediaItemIdListSchema.parse(
     db.prepare(`SELECT id FROM media_items ${where} ORDER BY ${orderBy}`).all(...params)
   )
+  const total = (db.prepare("SELECT COUNT(*) AS n FROM media_items").get() as { n: number }).n
+  const filtered = rows.length
 
-  return c.html(rows.map((row) => `
+  return c.html(`
+    <div id="media-count" hx-swap-oob="true">${filtered} / ${total} 件</div>
+  ` + rows.map((row) => `
     <div id="media-${row.id}" class="media-item" data-media-id="${row.id}"></div>
   `).join(''))
 })
