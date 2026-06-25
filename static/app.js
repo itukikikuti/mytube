@@ -12,4 +12,9 @@ initMediaModal({
   mediaModal: document.getElementById('media-modal'),
   mediaModalClose: document.getElementById('media-modal-close'),
   mediaPlayer: document.getElementById('media-player'),
+  mediaModalDate: document.getElementById('media-modal-date'),
+  mediaModalTitle: document.getElementById('media-modal-title'),
+  mediaModalDuration: document.getElementById('media-modal-duration'),
+  mediaModalRate: document.getElementById('media-modal-rate'),
+  mediaModalThumbs: document.getElementById('media-modal-thumbs'),
 });

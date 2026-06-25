@@ -1,10 +1,53 @@
-export function initMediaModal({ mediaModal, mediaModalClose, mediaPlayer }) {
-  if (!mediaModal || !mediaModalClose || !mediaPlayer) {
+export function initMediaModal({
+  mediaModal,
+  mediaModalClose,
+  mediaPlayer,
+  mediaModalDate,
+  mediaModalTitle,
+  mediaModalDuration,
+  mediaModalRate,
+  mediaModalThumbs,
+}) {
+  if (!mediaModal || !mediaModalClose || !mediaPlayer || !mediaModalDate || !mediaModalTitle || !mediaModalDuration || !mediaModalRate || !mediaModalThumbs) {
     return;
   }
 
-  function playVideo(src) {
+  function formatDuration(duration) {
+    const totalSeconds = Number(duration);
+    if (!Number.isFinite(totalSeconds)) return '';
+
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = String(totalSeconds % 60).padStart(2, '0');
+
+    return hours ? `${hours}:${String(minutes).padStart(2, '0')}:${seconds}` : `${minutes}:${seconds}`;
+  }
+
+  function setModalDetails(sourceElement) {
+    const rate = Math.max(0, Math.min(5, Number(sourceElement.dataset.rate) || 0));
+
+    mediaModalDate.textContent = sourceElement.dataset.date || '';
+    mediaModalTitle.textContent = sourceElement.dataset.title || '';
+    mediaModalDuration.textContent = formatDuration(sourceElement.dataset.duration);
+    mediaModalRate.textContent = `${'♥'.repeat(rate)}${'♡'.repeat(5 - rate)}`;
+    mediaModalThumbs.replaceChildren(...Array.from(sourceElement.querySelectorAll('.media-item-thumb-image')).map((image) => {
+      const thumb = image.cloneNode(false);
+      thumb.className = 'media-modal-thumb';
+      return thumb;
+    }));
+  }
+
+  function clearModalDetails() {
+    mediaModalDate.textContent = '';
+    mediaModalTitle.textContent = '';
+    mediaModalDuration.textContent = '';
+    mediaModalRate.textContent = '';
+    mediaModalThumbs.replaceChildren();
+  }
+
+  function playVideo(src, sourceElement) {
     mediaPlayer.src = src;
+    if (sourceElement) setModalDetails(sourceElement);
     mediaModal.showModal();
     mediaPlayer.play();
   }
@@ -16,5 +59,6 @@ export function initMediaModal({ mediaModal, mediaModalClose, mediaPlayer }) {
     mediaPlayer.pause();
     mediaPlayer.removeAttribute('src');
     mediaPlayer.load();
+    clearModalDetails();
   });
 }

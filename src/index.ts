@@ -18,6 +18,16 @@ const mediaItemIdListSchema = z.array(z.object({ id: z.number() }))
 
 const db: Database.Database = new Database("data/db.sqlite")
 
+function escapeHtml(value: string | number) {
+  return String(value).replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[char]!)
+}
+
 const app = new Hono()
 
 app.use('/static/*', serveStatic({ root: './' }))
@@ -41,13 +51,20 @@ app.get("/medias/:id", (c) => {
   }
 
   const mediaItem = mediaItemRowSchema.parse(row)
+  const escapedTitle = escapeHtml(mediaItem.title)
 
   return c.html(`
-    <div onclick="playVideo('/videos/${encodeURIComponent(mediaItem.title)}')">
+    <div
+      data-date="${escapeHtml(mediaItem.date)}"
+      data-duration="${mediaItem.duration}"
+      data-rate="${mediaItem.rate}"
+      data-title="${escapedTitle}"
+      onclick="playVideo('/videos/${encodeURIComponent(mediaItem.title)}', this)"
+    >
       <div class="media-item-thumb">
         <div class="media-item-thumb-viewport">
           <div class="media-item-thumb-track">
-            ${mediaItem.thumbs.map((thumb) => `<img src="data:image/jpeg;base64,${thumb}" alt="${mediaItem.title} thumbnail" class="media-item-thumb-image">`).join('')}
+            ${mediaItem.thumbs.map((thumb) => `<img src="data:image/jpeg;base64,${thumb}" alt="${escapedTitle} thumbnail" class="media-item-thumb-image">`).join('')}
           </div>
         </div>
         ${mediaItem.thumbs.length > 1 ? `
@@ -56,9 +73,9 @@ app.get("/medias/:id", (c) => {
           </div>
         ` : ''}
       </div>
-      <p class="media-item-title">${mediaItem.title}</p>
+      <p class="media-item-title">${escapedTitle}</p>
       <div class="media-item-meta">
-        <span>${mediaItem.date}</span>
+        <span>${escapeHtml(mediaItem.date)}</span>
         <span>${'♥'.repeat(mediaItem.rate)}${'♡'.repeat(5 - mediaItem.rate)}</span>
       </div>
     </div>
