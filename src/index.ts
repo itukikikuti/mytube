@@ -51,9 +51,33 @@ app.get('/', serveStatic({ path: './static/index.html' }))
 
 app.get("/medias", (c) => {
   const sort = c.req.query("sort") ?? ""
-  const orderBy = ORDER_BY_MAP[sort] ?? ORDER_BY_MAP.date_desc
+  const orderBy = ORDER_BY_MAP[sort] ?? ORDER_BY_MAP.id
+
+  const search = (c.req.query("q") ?? "").trim()
+  const types = c.req.queries("type") ?? []
+  const rates = (c.req.queries("rate") ?? [])
+    .map(Number)
+    .filter((n) => Number.isInteger(n))
+
+  const conditions: string[] = []
+  const params: unknown[] = []
+
+  if (search) {
+    conditions.push("title LIKE ?")
+    params.push(`%${search}%`)
+  }
+  if (types.length) {
+    conditions.push(`type IN (${types.map(() => "?").join(",")})`)
+    params.push(...types)
+  }
+  if (rates.length) {
+    conditions.push(`rate IN (${rates.map(() => "?").join(",")})`)
+    params.push(...rates)
+  }
+
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : ""
   const rows = mediaItemIdListSchema.parse(
-    db.prepare(`SELECT id FROM media_items ORDER BY ${orderBy}`).all()
+    db.prepare(`SELECT id FROM media_items ${where} ORDER BY ${orderBy}`).all(...params)
   )
 
   return c.html(rows.map((row) => `

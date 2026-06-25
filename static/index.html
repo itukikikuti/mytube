@@ -28,6 +28,7 @@
     </dialog>
 
     <header id="media-header">
+      <input type="search" id="search-input" name="q" placeholder="検索">
       <select id="sort-select" name="sort">
         <option value="date_desc">新しい順</option>
         <option value="date_asc">古い順</option>
@@ -40,13 +41,26 @@
         <option value="title">タイトル順</option>
         <option value="id">ID順</option>
       </select>
+      <fieldset id="type-filter">
+        <label><input type="checkbox" name="type" value="video" checked> 動画</label>
+        <label><input type="checkbox" name="type" value="image"> 画像</label>
+        <label><input type="checkbox" name="type" value="anime"> GIF</label>
+      </fieldset>
+      <fieldset id="rate-filter">
+        <label><input type="checkbox" name="rate" value="0" checked> 0</label>
+        <label><input type="checkbox" name="rate" value="1" checked> 1</label>
+        <label><input type="checkbox" name="rate" value="2" checked> 2</label>
+        <label><input type="checkbox" name="rate" value="3" checked> 3</label>
+        <label><input type="checkbox" name="rate" value="4" checked> 4</label>
+        <label><input type="checkbox" name="rate" value="5" checked> 5</label>
+      </fieldset>
       <button type="button"
         hx-get="/medias"
         hx-target="#media-list"
-        hx-include="#sort-select">適用</button>
+        hx-include="#media-header">適用</button>
     </header>
 
-    <div id="media-list" hx-get="/medias" hx-trigger="load"></div>
+    <div id="media-list" hx-get="/medias" hx-include="#media-header" hx-trigger="load"></div>
 
     <script type="module" src="/static/app.js"></script>
   </body>
