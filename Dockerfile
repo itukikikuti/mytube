@@ -1,11 +1,19 @@
-FROM node:22-bookworm-slim
+# ---- build stage ----
+FROM node:22-bookworm-slim AS build
+WORKDIR /app
+COPY package.json package-lock.json* ./
+RUN npm install
+COPY tsconfig.json ./
+COPY src ./src
+RUN npm run build
+
+# ---- runtime stage ----
+FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production PORT=3000
 COPY package.json package-lock.json* ./
 RUN npm install --omit=dev
-COPY tsconfig.json ./
-COPY src ./src
-RUN npx tsc
+COPY --from=build /app/dist ./dist
 COPY static ./static
 EXPOSE 3000
 CMD ["node", "dist/index.js"]
