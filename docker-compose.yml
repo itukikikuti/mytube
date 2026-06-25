@@ -1,0 +1,11 @@
+services:
+  mytube:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+    volumes:
+      - ./data:/app/data
+      - /mnt/nas/Videos:/app/videos
+    restart: unless-stopped
