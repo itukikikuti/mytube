@@ -98,6 +98,10 @@
   overflow: hidden;
 }
 
+body:has(#media-modal[open]) {
+  overflow: hidden;
+}
+
 #media-modal::backdrop {
   background: rgb(0 0 0 / 70%);
 }
