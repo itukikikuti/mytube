@@ -122,17 +122,21 @@ app.get("/medias/:id", (c) => {
       onclick="playVideo('/videos/${encodeURIComponent(mediaItem.title)}', this)"
     >
       <div class="media-item-thumb">
-        <div class="media-item-thumb-viewport">
-          <div class="media-item-thumb-track">
-            ${mediaItem.thumbs.map((thumb) => `<img src="data:image/jpeg;base64,${thumb}" alt="${escapedTitle} thumbnail" class="media-item-thumb-image">`).join('')}
+        ${mediaItem.type === 'video' ? `
+          <div class="media-item-thumb-viewport">
+            <div class="media-item-thumb-track">
+              ${mediaItem.thumbs.map((thumb) => `<img src="data:image/jpeg;base64,${thumb}" alt="${escapedTitle} thumbnail" class="media-item-thumb-image">`).join('')}
+            </div>
           </div>
-        </div>
-        ${mediaItem.thumbs.length > 1 ? `
-          <div class="media-item-thumb-indicators">
-            ${mediaItem.thumbs.map((_, index) => `<div class="media-item-thumb-indicator${index === 0 ? ' is-active' : ''}"></div>`).join('')}
-          </div>
-        ` : ''}
-        <span class="media-item-thumb-duration">${mediaDurationText}</span>
+          ${mediaItem.thumbs.length > 1 ? `
+            <div class="media-item-thumb-indicators">
+              ${mediaItem.thumbs.map((_, index) => `<div class="media-item-thumb-indicator${index === 0 ? ' is-active' : ''}"></div>`).join('')}
+            </div>
+          ` : ''}
+          <span class="media-item-thumb-duration">${mediaDurationText}</span>
+        ` : `
+          <img src="/videos/${encodeURIComponent(mediaItem.title)}" alt="${escapedTitle}" class="media-item-thumb-image">
+        `}
       </div>
       <p class="media-item-title">${escapedTitle}</p>
       <div class="media-item-meta">
