@@ -42,6 +42,15 @@ function escapeHtml(value: string | number) {
   })[char]!)
 }
 
+function formatDuration(seconds: number): string {
+  const total = Math.max(0, Math.floor(seconds))
+  const h = Math.floor(total / 3600)
+  const m = Math.floor((total % 3600) / 60)
+  const s = total % 60
+  const mm = h > 0 ? String(m).padStart(2, "0") : String(m)
+  return (h > 0 ? `${h}:` : "") + `${mm}:${String(s).padStart(2, "0")}`
+}
+
 const app = new Hono()
 
 app.use('/static/*', serveStatic({ root: './' }))
@@ -101,11 +110,12 @@ app.get("/medias/:id", (c) => {
   const mediaDate = new Date(mediaItem.date * 1000)
   const mediaDateText = mediaDate.toLocaleDateString()
   const mediaDateTimeText = mediaDate.toLocaleString()
+  const mediaDurationText = escapeHtml(formatDuration(mediaItem.duration))
 
   return c.html(`
     <div
       data-date="${escapeHtml(mediaDateTimeText)}"
-      data-duration="${mediaItem.duration}"
+      data-duration="${mediaDurationText}"
       data-play-count="${mediaItem.playCount}"
       data-rate="${mediaItem.rate}"
       data-title="${escapedTitle}"
@@ -122,6 +132,7 @@ app.get("/medias/:id", (c) => {
             ${mediaItem.thumbs.map((_, index) => `<div class="media-item-thumb-indicator${index === 0 ? ' is-active' : ''}"></div>`).join('')}
           </div>
         ` : ''}
+        <span class="media-item-thumb-duration">${mediaDurationText}</span>
       </div>
       <p class="media-item-title">${escapedTitle}</p>
       <div class="media-item-meta">
