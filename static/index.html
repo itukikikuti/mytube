@@ -27,6 +27,25 @@
       </div>
     </dialog>
 
+    <header id="media-header">
+      <select id="sort-select" name="sort">
+        <option value="date_desc">新しい順</option>
+        <option value="date_asc">古い順</option>
+        <option value="recent">最近再生した順</option>
+        <option value="duration_desc">長い順</option>
+        <option value="duration_asc">短い順</option>
+        <option value="rate_desc">レート高い順</option>
+        <option value="play_count">再生回数順</option>
+        <option value="shuffle">シャッフル</option>
+        <option value="title">タイトル順</option>
+        <option value="id">ID順</option>
+      </select>
+      <button type="button"
+        hx-get="/medias"
+        hx-target="#media-list"
+        hx-include="#sort-select">適用</button>
+    </header>
+
     <div id="media-list" hx-get="/medias" hx-trigger="load"></div>
 
     <script type="module" src="/static/app.js"></script>

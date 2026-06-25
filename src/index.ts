@@ -17,6 +17,19 @@ const mediaItemRowSchema = z.object({
 
 const mediaItemIdListSchema = z.array(z.object({ id: z.number() }))
 
+const ORDER_BY_MAP: Record<string, string> = {
+  date_desc:      "date DESC",
+  date_asc:       "date ASC",
+  recent:         "(SELECT MAX(date) FROM history_items WHERE media = media_items.id) DESC",
+  duration_desc:  "duration DESC",
+  duration_asc:   "duration ASC",
+  rate_desc:      "rate DESC",
+  play_count:     "(SELECT COUNT(*) FROM history_items WHERE media = media_items.id) DESC",
+  shuffle:        "RANDOM()",
+  title:          "title ASC",
+  id:             "id ASC",
+}
+
 const db: Database.Database = new Database("data/db.sqlite")
 
 function escapeHtml(value: string | number) {
@@ -37,7 +50,11 @@ app.use('/videos/*', serveStatic({ root: './' }))
 app.get('/', serveStatic({ path: './static/index.html' }))
 
 app.get("/medias", (c) => {
-  const rows = mediaItemIdListSchema.parse(db.prepare("SELECT id FROM media_items").all())
+  const sort = c.req.query("sort") ?? ""
+  const orderBy = ORDER_BY_MAP[sort] ?? ORDER_BY_MAP.date_desc
+  const rows = mediaItemIdListSchema.parse(
+    db.prepare(`SELECT id FROM media_items ORDER BY ${orderBy}`).all()
+  )
 
   return c.html(rows.map((row) => `
     <div id="media-${row.id}" class="media-item" data-media-id="${row.id}"></div>
