@@ -5,6 +5,7 @@ export function initMediaModal({
   mediaModalDate,
   mediaModalTitle,
   mediaModalDuration,
+  mediaModalPlayCount,
   mediaModalRate,
   mediaModalThumbs,
   mediaModalPlayLocal,
@@ -32,6 +33,7 @@ export function initMediaModal({
     mediaModalDate.textContent = sourceElement.dataset.date || '';
     mediaModalTitle.textContent = sourceElement.dataset.title || '';
     mediaModalDuration.textContent = formatDuration(sourceElement.dataset.duration);
+    mediaModalPlayCount.textContent = `${Number(sourceElement.dataset.playCount) || 0}回`;
     mediaModalRate.textContent = `${'♥'.repeat(rate)}${'♡'.repeat(5 - rate)}`;
     mediaModalThumbs.replaceChildren(...Array.from(sourceElement.querySelectorAll('.media-item-thumb-image')).map((image) => {
       const thumb = image.cloneNode(false);
@@ -44,6 +46,7 @@ export function initMediaModal({
     mediaModalDate.textContent = '';
     mediaModalTitle.textContent = '';
     mediaModalDuration.textContent = '';
+    mediaModalPlayCount.textContent = '';
     mediaModalRate.textContent = '';
     mediaModalThumbs.replaceChildren();
   }

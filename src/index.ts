@@ -11,6 +11,7 @@ const mediaItemRowSchema = z.object({
   type: z.string(),
   duration: z.number(),
   rate: z.number(),
+  playCount: z.number(),
   thumbs: z.string().transform((json) => JSON.parse(json)).pipe(z.array(z.string())),
 })
 
@@ -44,7 +45,11 @@ app.get("/medias", (c) => {
 })
 
 app.get("/medias/:id", (c) => {
-  const row = db.prepare("SELECT * FROM media_items WHERE id = ?").get(c.req.param("id"));
+  const row = db.prepare(`
+    SELECT *, (SELECT COUNT(*) FROM history_items WHERE media = media_items.id) AS playCount
+    FROM media_items
+    WHERE id = ?
+  `).get(c.req.param("id"));
 
   if (!row) {
     return c.notFound()
@@ -60,6 +65,7 @@ app.get("/medias/:id", (c) => {
     <div
       data-date="${escapeHtml(mediaDateTimeText)}"
       data-duration="${mediaItem.duration}"
+      data-play-count="${mediaItem.playCount}"
       data-rate="${mediaItem.rate}"
       data-title="${escapedTitle}"
       onclick="playVideo('/videos/${encodeURIComponent(mediaItem.title)}', this)"
@@ -78,7 +84,7 @@ app.get("/medias/:id", (c) => {
       </div>
       <p class="media-item-title">${escapedTitle}</p>
       <div class="media-item-meta">
-        <span>${escapeHtml(mediaDateText)}</span>
+        <span>${mediaItem.playCount}回・${escapeHtml(mediaDateText)}</span>
         <span>${'♥'.repeat(mediaItem.rate)}${'♡'.repeat(5 - mediaItem.rate)}</span>
       </div>
     </div>

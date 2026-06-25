@@ -16,6 +16,7 @@ initMediaModal({
   mediaModalDate: document.getElementById('media-modal-date'),
   mediaModalTitle: document.getElementById('media-modal-title'),
   mediaModalDuration: document.getElementById('media-modal-duration'),
+  mediaModalPlayCount: document.getElementById('media-modal-play-count'),
   mediaModalRate: document.getElementById('media-modal-rate'),
   mediaModalThumbs: document.getElementById('media-modal-thumbs'),
   mediaModalPlayLocal: document.getElementById('media-modal-play-local'),
