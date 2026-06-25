@@ -7,10 +7,13 @@ export function initMediaModal({
   mediaModalDuration,
   mediaModalRate,
   mediaModalThumbs,
+  mediaModalPlayLocal,
 }) {
-  if (!mediaModal || !mediaModalClose || !mediaPlayer || !mediaModalDate || !mediaModalTitle || !mediaModalDuration || !mediaModalRate || !mediaModalThumbs) {
+  if (!mediaModal || !mediaModalClose || !mediaPlayer || !mediaModalDate || !mediaModalTitle || !mediaModalDuration || !mediaModalRate || !mediaModalThumbs || !mediaModalPlayLocal) {
     return;
   }
+
+  let currentMediaId = null;
 
   function formatDuration(duration) {
     const totalSeconds = Number(duration);
@@ -47,6 +50,7 @@ export function initMediaModal({
 
   function playVideo(src, sourceElement) {
     mediaPlayer.src = src;
+    currentMediaId = sourceElement?.closest('[data-media-id]')?.dataset.mediaId ?? null;
     if (sourceElement) setModalDetails(sourceElement);
     mediaModal.showModal();
     mediaPlayer.play();
@@ -55,10 +59,19 @@ export function initMediaModal({
   window.playVideo = playVideo;
 
   mediaModalClose.addEventListener('click', () => mediaModal.close());
+  mediaModalPlayLocal.addEventListener('click', () => {
+    if (!currentMediaId) return;
+    fetch('/history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ media: Number(currentMediaId) }),
+    });
+  });
   mediaModal.addEventListener('close', () => {
     mediaPlayer.pause();
     mediaPlayer.removeAttribute('src');
     mediaPlayer.load();
     clearModalDetails();
+    currentMediaId = null;
   });
 }

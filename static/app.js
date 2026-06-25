@@ -18,6 +18,7 @@ initMediaModal({
   mediaModalDuration: document.getElementById('media-modal-duration'),
   mediaModalRate: document.getElementById('media-modal-rate'),
   mediaModalThumbs: document.getElementById('media-modal-thumbs'),
+  mediaModalPlayLocal: document.getElementById('media-modal-play-local'),
 });
 
 renderIcons();

@@ -85,6 +85,13 @@ app.get("/medias/:id", (c) => {
   `)
 })
 
+app.post("/history", async (c) => {
+  const { media } = await c.req.json()
+  db.prepare("INSERT INTO history_items (media, date) VALUES (?, ?)")
+    .run(media, Math.floor(Date.now() / 1000))
+  return c.body(null, 204)
+})
+
 const port = Number(process.env.PORT ?? 3000)
 
 serve({ fetch: app.fetch, port })
