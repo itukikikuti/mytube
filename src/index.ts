@@ -7,7 +7,7 @@ import Database from "better-sqlite3"
 const mediaItemRowSchema = z.object({
   id: z.number(),
   title: z.string(),
-  date: z.number().transform((unixSeconds) => new Date(unixSeconds * 1000).toLocaleDateString()),
+  date: z.number(),
   type: z.string(),
   duration: z.number(),
   rate: z.number(),
@@ -52,10 +52,13 @@ app.get("/medias/:id", (c) => {
 
   const mediaItem = mediaItemRowSchema.parse(row)
   const escapedTitle = escapeHtml(mediaItem.title)
+  const mediaDate = new Date(mediaItem.date * 1000)
+  const mediaDateText = mediaDate.toLocaleDateString()
+  const mediaDateTimeText = mediaDate.toLocaleString()
 
   return c.html(`
     <div
-      data-date="${escapeHtml(mediaItem.date)}"
+      data-date="${escapeHtml(mediaDateTimeText)}"
       data-duration="${mediaItem.duration}"
       data-rate="${mediaItem.rate}"
       data-title="${escapedTitle}"
@@ -75,7 +78,7 @@ app.get("/medias/:id", (c) => {
       </div>
       <p class="media-item-title">${escapedTitle}</p>
       <div class="media-item-meta">
-        <span>${escapeHtml(mediaItem.date)}</span>
+        <span>${escapeHtml(mediaDateText)}</span>
         <span>${'♥'.repeat(mediaItem.rate)}${'♡'.repeat(5 - mediaItem.rate)}</span>
       </div>
     </div>
