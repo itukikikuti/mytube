@@ -6,18 +6,19 @@
     <title>MyTube</title>
     <link rel="stylesheet" href="/static/styles.css">
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script defer src="https://unpkg.com/lucide@0.468.0"></script>
   </head>
   <body>
     <dialog id="media-modal">
-      <button id="media-modal-close" type="button" aria-label="閉じる">×</button>
+      <button id="media-modal-close" type="button" aria-label="閉じる"><i data-lucide="x"></i></button>
       <div id="media-modal-body">
         <video id="media-player" controls></video>
         <aside id="media-modal-sidebar">
           <dl id="media-modal-meta">
-            <div><dt>日時</dt><dd id="media-modal-date"></dd></div>
-            <div><dt>タイトル</dt><dd id="media-modal-title"></dd></div>
-            <div><dt>長さ</dt><dd id="media-modal-duration"></dd></div>
-            <div><dt>評価</dt><dd id="media-modal-rate"></dd></div>
+            <div><dt><i data-lucide="calendar-days"></i>日時</dt><dd id="media-modal-date"></dd></div>
+            <div><dt><i data-lucide="captions"></i>タイトル</dt><dd id="media-modal-title"></dd></div>
+            <div><dt><i data-lucide="clock-3"></i>長さ</dt><dd id="media-modal-duration"></dd></div>
+            <div><dt><i data-lucide="heart"></i>評価</dt><dd id="media-modal-rate"></dd></div>
           </dl>
           <div id="media-modal-thumbs"></div>
         </aside>

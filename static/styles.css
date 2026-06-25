@@ -111,6 +111,22 @@ body:has(#media-modal[open]) {
   top: 8px;
   right: 8px;
   z-index: 1;
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: rgb(0 0 0 / 55%);
+  cursor: pointer;
+}
+
+#media-modal-close .lucide,
+#media-modal-close [data-lucide] {
+  width: 20px;
+  height: 20px;
 }
 
 #media-modal-body {
@@ -148,8 +164,18 @@ body:has(#media-modal[open]) {
 }
 
 #media-modal-meta dt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: #aaa;
   font-size: 12px;
+}
+
+#media-modal-meta dt .lucide,
+#media-modal-meta dt [data-lucide] {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2;
 }
 
 #media-modal-meta dd {
