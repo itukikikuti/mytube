@@ -145,7 +145,7 @@ app.get("/medias/:id", (c) => {
       <p class="media-item-title">${escapedTitle}</p>
       <div class="media-item-meta">
         <span>${mediaItem.playCount}回・${escapeHtml(mediaDateText)}</span>
-        <span>${'♥'.repeat(mediaItem.rate)}${'♡'.repeat(5 - mediaItem.rate)}</span>
+        <span class="media-item-rate">${'♥'.repeat(mediaItem.rate)}<span class="media-item-rate-off">${'♡'.repeat(5 - mediaItem.rate)}</span></span>
       </div>
     </div>
   `)

@@ -1,7 +1,13 @@
 import { initMediaList } from './media-list.js';
 import { initMediaModal } from './media-modal.js';
 import { initThumbnailCarousel } from './thumbnail-carousel.js';
+import { initHeader } from './header.js';
 import { renderIcons } from './icons.js';
+
+initHeader({
+  mediaHeader: document.getElementById('media-header'),
+  filterToggle: document.getElementById('filter-toggle'),
+});
 
 initMediaList({
   mediaList: document.getElementById('media-list'),
