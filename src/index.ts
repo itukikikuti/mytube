@@ -92,7 +92,7 @@ app.get("/medias", (c) => {
   const filtered = rows.length
 
   return c.html(`
-    <div id="media-count" hx-swap-oob="true">${filtered} / ${total} 件</div>
+    <div id="media-count" hx-swap-oob="true">${filtered} /<br>${total} 件</div>
   ` + rows.map((row) => `
     <div id="media-${row.id}" class="media-item" data-media-id="${row.id}"></div>
   `).join(''))
@@ -145,7 +145,7 @@ app.get("/medias/:id", (c) => {
       <p class="media-item-title">${escapedTitle}</p>
       <div class="media-item-meta">
         <span>${mediaItem.playCount}回・${escapeHtml(mediaDateText)}</span>
-        <span class="media-item-rate">${'♥'.repeat(mediaItem.rate)}<span class="media-item-rate-off">${'♡'.repeat(5 - mediaItem.rate)}</span></span>
+        <span class="media-item-rate">${'♥'.repeat(mediaItem.rate)}<span class="media-item-rate-off">${'♥'.repeat(5 - mediaItem.rate)}</span></span>
       </div>
     </div>
   `)

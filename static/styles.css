@@ -26,7 +26,7 @@ body {
   margin: 0;
   padding: 18px;
   min-height: 100vh;
-  font-family: "M PLUS Rounded 1c", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: "Noto Sans JP", system-ui, -apple-system, "Segoe UI", sans-serif;
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
@@ -34,6 +34,9 @@ body {
 
 /* ===== Header ===== */
 #media-header {
+  position: sticky;
+  top: 18px;
+  z-index: 100;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -105,7 +108,7 @@ body {
   color: var(--text-muted);
   background: var(--bg);
   box-shadow: var(--shadow-concave-sm);
-  white-space: nowrap;
+  text-align: center;
 }
 
 #header-filters {
@@ -130,6 +133,11 @@ body {
   box-shadow: var(--shadow-convex-sm);
   appearance: none;
   cursor: pointer;
+}
+
+#sort-select:focus,
+#sort-select:focus-visible {
+  outline: none;
 }
 
 #type-filter,
@@ -202,15 +210,12 @@ body {
 #media-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
-  grid-auto-rows: 304px;
   gap: 18px;
 }
 
 .media-item {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  height: 100%;
   padding: 14px;
   border-radius: var(--radius);
   background: var(--bg);
@@ -220,6 +225,23 @@ body {
   transition: box-shadow 200ms, transform 200ms;
 }
 
+/* ---- Placeholder for not-yet-loaded (lazy) cards ----
+   Reproduce the exact same box layout a loaded card has, so the reserved
+   height matches pixel-for-pixel (same sub-pixel rounding) and the page
+   never shifts as cards load/unload while scrolling.
+   ::before mirrors the 16:9 thumbnail (same width + aspect-ratio as the
+   real thumb); ::after reserves the title (2 lines) + gap + meta block. */
+.media-item:not([data-loaded])::before {
+  content: "";
+  width: 100%;
+  aspect-ratio: 16 / 9;
+}
+.media-item:not([data-loaded])::after {
+  content: "";
+  /* title 2.8em (2 lines @16px = 44.8px) + meta 1.4em (@13px = 18.2px) */
+  height: 63px;
+}
+
 .media-item:hover {
   transform: translateY(-3px);
   box-shadow: var(--shadow-convex-lg);
@@ -227,13 +249,11 @@ body {
 
 .media-item-thumb {
   position: relative;
-  flex: 1;
-  min-height: 0;
   width: 100%;
+  aspect-ratio: 16 / 9;
   overflow: hidden;
   border-radius: var(--radius-sm);
-  background: var(--bg);
-  box-shadow: var(--shadow-concave-sm);
+  background: #000;
 }
 
 .media-item-thumb-viewport {
@@ -293,6 +313,7 @@ body {
 
 .media-item-title {
   width: 100%;
+  min-height: 2.8em; /* always reserve 2 lines so card heights stay uniform */
   margin: 0;
   font-weight: 700;
   line-height: 1.4;
@@ -312,6 +333,7 @@ body {
   width: 100%;
   margin-top: auto;
   font-size: 13px;
+  line-height: 1.4;
   color: var(--text-muted);
 }
 
@@ -322,7 +344,7 @@ body {
 }
 
 .media-item-rate-off {
-  color: var(--accent-soft);
+  color: gray;
 }
 
 /* ===== Modal ===== */
@@ -350,24 +372,29 @@ body:has(#media-modal[open]) {
 
 #media-modal-close {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  top: 26px;
+  left: 26px;
   z-index: 2;
   display: inline-grid;
   place-items: center;
-  width: 46px;
-  height: 46px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   border: 0;
   border-radius: 50%;
-  color: var(--accent-strong);
-  background: var(--bg);
-  box-shadow: var(--shadow-convex-sm);
+  color: #fff;
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: none;
   cursor: pointer;
+  transition: background 0.15s;
+}
+
+#media-modal-close:hover {
+  background: rgba(0, 0, 0, 0.55);
 }
 
 #media-modal-close:active {
-  box-shadow: var(--shadow-concave-sm);
+  background: rgba(0, 0, 0, 0.7);
 }
 
 #media-modal-close .lucide,
@@ -391,8 +418,7 @@ body:has(#media-modal[open]) {
   height: 100%;
   border-radius: var(--radius);
   object-fit: contain;
-  background: var(--bg);
-  box-shadow: var(--shadow-concave);
+  background: #000;
 }
 
 #media-modal-sidebar {
@@ -527,5 +553,10 @@ body:has(#media-modal[open]) {
 
   #media-modal-sidebar {
     height: auto;
+  }
+
+  #media-list {
+    grid-template-columns: repeat(2, 1fr);
+    grid-auto-rows: auto;
   }
 }

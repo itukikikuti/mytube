@@ -23,7 +23,7 @@ export function initMediaModal({
     mediaModalTitle.textContent = sourceElement.dataset.title || '';
     mediaModalDuration.textContent = sourceElement.dataset.duration || '';
     mediaModalPlayCount.textContent = `${Number(sourceElement.dataset.playCount) || 0}回`;
-    mediaModalRate.textContent = `${'♥'.repeat(rate)}${'♡'.repeat(5 - rate)}`;
+    mediaModalRate.innerHTML = `${'♥'.repeat(rate)}<span style="color: gray">${'♥'.repeat(5 - rate)}</span>`;
     mediaModalThumbs.replaceChildren(...Array.from(sourceElement.querySelectorAll('.media-item-thumb-image')).map((image) => {
       const thumb = image.cloneNode(false);
       thumb.className = 'media-modal-thumb';
