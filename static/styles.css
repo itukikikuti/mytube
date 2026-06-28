@@ -216,13 +216,20 @@ body {
 .media-item {
   display: flex;
   flex-direction: column;
-  padding: 14px;
+  padding: 0;
   border-radius: var(--radius);
   background: var(--bg);
   box-shadow: var(--shadow-convex);
   cursor: pointer;
   overflow: hidden;
   transition: box-shadow 200ms, transform 200ms;
+}
+
+.media-item > div {
+  flex: 1;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 未ロードのカードにも同じスケルトン要素を入れることで、同じCSSルールで
