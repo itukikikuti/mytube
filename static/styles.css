@@ -298,10 +298,29 @@ body {
   padding: 2px 9px;
   border-radius: var(--radius-pill);
   font-size: 12px;
+  z-index: 2;
   font-weight: 700;
   line-height: 1.4;
   color: #fff;
   background: rgb(93 74 88 / 82%);
+}
+
+.media-item-preview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+  border-radius: var(--radius-sm);
+  opacity: 0;
+  transition: opacity 300ms;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.media-item-preview.is-active {
+  opacity: 1;
 }
 
 .media-item-title {

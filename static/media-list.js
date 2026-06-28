@@ -53,6 +53,23 @@ export function initMediaList({ mediaList }) {
 
       target.innerHTML = html;
       target.dataset.loaded = 'true';
+
+      if (!target.dataset.previewInit) {
+        target.dataset.previewInit = 'true';
+        target.addEventListener('mouseenter', () => {
+          const video = target.querySelector('.media-item-preview');
+          if (!video) return;
+          video.classList.add('is-active');
+          video.play().catch(() => {});
+        });
+        target.addEventListener('mouseleave', () => {
+          const video = target.querySelector('.media-item-preview');
+          if (!video) return;
+          video.pause();
+          video.currentTime = 0;
+          video.classList.remove('is-active');
+        });
+      }
     } catch (error) {
       if (error.name !== 'AbortError') {
         console.error(error);

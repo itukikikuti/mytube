@@ -143,6 +143,14 @@ app.get("/medias/:id", (c) => {
               ${mediaItem.thumbs.map((_, index) => `<div class="media-item-thumb-indicator${index === 0 ? ' is-active' : ''}"></div>`).join('')}
             </div>
           ` : ''}
+          <video
+            class="media-item-preview"
+            muted
+            loop
+            playsinline
+            preload="metadata"
+            src="/videos/${encodeURI(mediaItem.title)}"
+          ></video>
           <span class="media-item-thumb-duration">${mediaDurationText}</span>
         ` : `
           <img src="/videos/${encodeURI(mediaItem.title)}" alt="${escapedTitle}" class="media-item-thumb-image">
