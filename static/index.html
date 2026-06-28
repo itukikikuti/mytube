@@ -33,7 +33,6 @@
     <header id="media-header">
       <div id="header-bar">
         <input type="search" id="search-input" name="q" placeholder="検索">
-        <div id="media-count"></div>
         <button type="button" id="filter-toggle" aria-expanded="false" aria-controls="header-filters">
           <i data-lucide="sliders-horizontal"></i><span>絞り込み</span>
         </button>
@@ -69,6 +68,7 @@
           hx-target="#media-list"
           hx-include="#media-header">適用</button>
       </div>
+      <div id="media-count"></div>
     </header>
 
     <div id="media-list" hx-get="/medias" hx-include="#media-header" hx-trigger="load"></div>

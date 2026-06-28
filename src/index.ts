@@ -92,7 +92,7 @@ app.get("/medias", (c) => {
   const filtered = rows.length
 
   return c.html(`
-    <div id="media-count" hx-swap-oob="true">${filtered} /<br>${total} 件</div>
+    <div id="media-count" hx-swap-oob="true">${filtered} / ${total} 件</div>
   ` + rows.map((row) => `
     <div id="media-${row.id}" class="media-item" data-media-id="${row.id}">
       <div>
