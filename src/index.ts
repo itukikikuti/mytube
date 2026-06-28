@@ -149,8 +149,8 @@ app.get("/medias/:id", (c) => {
             muted
             loop
             playsinline
-            preload="metadata"
-            src="/videos/${encodeURI(mediaItem.title)}"
+            preload="none"
+            data-src="/videos/${encodeURI(mediaItem.title)}"
           ></video>
           <span class="media-item-thumb-duration">${mediaDurationText}</span>
         ` : `

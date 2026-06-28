@@ -59,6 +59,9 @@ export function initMediaList({ mediaList }) {
         target.addEventListener('mouseenter', () => {
           const video = target.querySelector('.media-item-preview');
           if (!video) return;
+          if (!video.src && video.dataset.src) {
+            video.src = video.dataset.src;
+          }
           video.classList.add('is-active');
           video.play().catch(() => {});
         });
