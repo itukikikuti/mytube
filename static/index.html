@@ -15,7 +15,23 @@
     <dialog id="media-modal">
       <button id="media-modal-close" type="button" aria-label="閉じる"><i data-lucide="x"></i></button>
       <div id="media-modal-body">
-        <video id="media-player" controls></video>
+        <div id="player-wrapper">
+          <video id="media-player"></video>
+          <div id="player-controls">
+            <div id="player-controls-bar">
+              <button id="player-play-btn" type="button" aria-label="再生/停止" data-state="paused">
+                <i data-lucide="play" class="icon-play"></i>
+                <i data-lucide="pause" class="icon-pause"></i>
+              </button>
+              <span id="player-time">0:00 / 0:00</span>
+              <input id="player-seekbar" type="range" min="0" max="1000" step="1" value="0">
+              <button id="player-fullscreen-btn" type="button" aria-label="フルスクリーン" data-state="normal">
+                <i data-lucide="maximize" class="icon-maximize"></i>
+                <i data-lucide="minimize" class="icon-minimize"></i>
+              </button>
+            </div>
+          </div>
+        </div>
         <aside id="media-modal-sidebar">
           <dl id="media-modal-meta">
             <div><dt><i data-lucide="calendar-days"></i>日時</dt><dd id="media-modal-date"></dd></div>
