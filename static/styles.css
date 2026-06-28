@@ -32,7 +32,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ===== Header ===== */
+/* ===== ヘッダー ===== */
 #media-header {
   position: sticky;
   top: 18px;
@@ -206,7 +206,7 @@ body {
   box-shadow: var(--shadow-concave-sm);
 }
 
-/* ===== Media list & cards ===== */
+/* ===== メディア一覧・カード ===== */
 #media-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
@@ -225,21 +225,10 @@ body {
   transition: box-shadow 200ms, transform 200ms;
 }
 
-/* ---- Placeholder for not-yet-loaded (lazy) cards ----
-   Reproduce the exact same box layout a loaded card has, so the reserved
-   height matches pixel-for-pixel (same sub-pixel rounding) and the page
-   never shifts as cards load/unload while scrolling.
-   ::before mirrors the 16:9 thumbnail (same width + aspect-ratio as the
-   real thumb); ::after reserves the title (2 lines) + gap + meta block. */
-.media-item:not([data-loaded])::before {
-  content: "";
-  width: 100%;
-  aspect-ratio: 16 / 9;
-}
-.media-item:not([data-loaded])::after {
-  content: "";
-  /* title 2.8em (2 lines @16px = 44.8px) + meta 1.4em (@13px = 18.2px) */
-  height: 63px;
+/* 未ロードのカードにも同じスケルトン要素を入れることで、同じCSSルールで
+   高さが計算され端末によらず一致する。空のサムネだとわかるよう色をつける。 */
+.media-item:not([data-loaded]) .media-item-thumb {
+  background: var(--shadow-dark);
 }
 
 .media-item:hover {
@@ -313,7 +302,7 @@ body {
 
 .media-item-title {
   width: 100%;
-  min-height: 2.8em; /* always reserve 2 lines so card heights stay uniform */
+  min-height: 2.8em; /* 常に2行分を確保してカード高さを揃える */
   margin: 0;
   font-weight: 700;
   line-height: 1.4;
@@ -331,10 +320,17 @@ body {
   align-items: center;
   gap: 12px;
   width: 100%;
-  margin-top: auto;
+  min-height: 1.4em;
   font-size: 13px;
   line-height: 1.4;
   color: var(--text-muted);
+}
+
+.media-item-meta > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .media-item-rate {
@@ -343,11 +339,16 @@ body {
   white-space: nowrap;
 }
 
+/* デスクトップ: ♥×5 を表示、短縮形を非表示 */
+.media-item-rate-short {
+  display: none;
+}
+
 .media-item-rate-off {
   color: gray;
 }
 
-/* ===== Modal ===== */
+/* ===== モーダル ===== */
 #media-modal {
   width: 100vw;
   height: 100vh;
@@ -513,7 +514,7 @@ body:has(#media-modal[open]) {
   box-shadow: var(--shadow-convex-sm);
 }
 
-/* ===== Responsive ===== */
+/* ===== レスポンシブ ===== */
 @media (max-width: 768px) {
   body {
     padding: 12px;
@@ -557,6 +558,14 @@ body:has(#media-modal[open]) {
 
   #media-list {
     grid-template-columns: repeat(2, 1fr);
-    grid-auto-rows: auto;
+  }
+
+  /* スマホ: 評価を ♥N の短縮形で表示 */
+  .media-item-rate-long {
+    display: none;
+  }
+
+  .media-item-rate-short {
+    display: inline;
   }
 }

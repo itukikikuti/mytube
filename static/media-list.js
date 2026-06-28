@@ -3,6 +3,10 @@ export function initMediaList({ mediaList }) {
     return;
   }
 
+  // スケルトン要素はロード済みカードと同じ構造にする（src/index.ts の /medias を参照）。
+  // 同じCSSルールで高さが決まるため、ロード前後で高さが一致してガタつかない。
+  const SKELETON = '<div><div class="media-item-thumb"></div><p class="media-item-title"></p><div class="media-item-meta"></div></div>';
+
   const mediaRequests = new WeakMap();
 
   const intersectionObserver = new IntersectionObserver((entries) => {
@@ -16,7 +20,7 @@ export function initMediaList({ mediaList }) {
           mediaRequests.delete(entry.target);
         }
 
-        entry.target.innerHTML = '';
+        entry.target.innerHTML = SKELETON;
         entry.target.removeAttribute('data-loaded');
         entry.target.removeAttribute('data-loading');
       }
