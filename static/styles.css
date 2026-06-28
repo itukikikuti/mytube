@@ -459,6 +459,23 @@ body:has(#media-modal[open]) {
   background: #000;
 }
 
+#media-image {
+  display: none;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+#player-wrapper.is-image #media-player,
+#player-wrapper.is-image #player-controls {
+  display: none;
+}
+
+#player-wrapper.is-image #media-image {
+  display: block;
+}
+
 /* ===== カスタムプレイヤーコントロール ===== */
 #player-controls {
   position: absolute;

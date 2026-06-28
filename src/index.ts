@@ -124,6 +124,7 @@ app.get("/medias/:id", (c) => {
 
   return c.html(`
     <div
+      data-type="${mediaItem.type}"
       data-date="${escapeHtml(mediaDateTimeText)}"
       data-duration="${mediaDurationText}"
       data-play-count="${mediaItem.playCount}"

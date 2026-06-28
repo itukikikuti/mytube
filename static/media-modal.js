@@ -14,6 +14,8 @@ export function initMediaModal({
     return;
   }
 
+  const mediaImage = document.getElementById('media-image');
+
   // ===== カスタムプレイヤーコントロール =====
   const playerWrapper = document.getElementById('player-wrapper');
   const playerPlayBtn = document.getElementById('player-play-btn');
@@ -140,17 +142,24 @@ export function initMediaModal({
 
   function setModalDetails(sourceElement) {
     const rate = Math.max(0, Math.min(5, Number(sourceElement.dataset.rate) || 0));
+    const type = sourceElement.dataset.type ?? 'video';
+    const isImageType = type === 'image' || type === 'anime';
 
     mediaModalDate.textContent = sourceElement.dataset.date || '';
     mediaModalTitle.textContent = sourceElement.dataset.title || '';
     mediaModalDuration.textContent = sourceElement.dataset.duration || '';
     mediaModalPlayCount.textContent = `${Number(sourceElement.dataset.playCount) || 0}回`;
     mediaModalRate.innerHTML = `${'♥'.repeat(rate)}<span style="color: gray">${'♥'.repeat(5 - rate)}</span>`;
-    mediaModalThumbs.replaceChildren(...Array.from(sourceElement.querySelectorAll('.media-item-thumb-image')).map((image) => {
-      const thumb = image.cloneNode(false);
-      thumb.className = 'media-modal-thumb';
-      return thumb;
-    }));
+
+    if (!isImageType) {
+      mediaModalThumbs.replaceChildren(...Array.from(sourceElement.querySelectorAll('.media-item-thumb-image')).map((image) => {
+        const thumb = image.cloneNode(false);
+        thumb.className = 'media-modal-thumb';
+        return thumb;
+      }));
+    } else {
+      mediaModalThumbs.replaceChildren();
+    }
   }
 
   function clearModalDetails() {
@@ -163,11 +172,19 @@ export function initMediaModal({
   }
 
   function playVideo(src, sourceElement) {
-    mediaPlayer.src = src;
+    const type = sourceElement?.dataset.type ?? 'video';
+    const isImageType = type === 'image' || type === 'anime';
     currentMediaId = sourceElement?.closest('[data-media-id]')?.dataset.mediaId ?? null;
     if (sourceElement) setModalDetails(sourceElement);
+    if (isImageType) {
+      playerWrapper.classList.add('is-image');
+      mediaImage.src = src;
+    } else {
+      playerWrapper.classList.remove('is-image');
+      mediaPlayer.src = src;
+    }
     mediaModal.showModal();
-    mediaPlayer.play();
+    if (!isImageType) mediaPlayer.play();
   }
 
   window.playVideo = playVideo;
@@ -224,6 +241,8 @@ export function initMediaModal({
     mediaPlayer.pause();
     mediaPlayer.removeAttribute('src');
     mediaPlayer.load();
+    mediaImage.src = '';
+    playerWrapper.classList.remove('is-image');
     clearModalDetails();
     currentMediaId = null;
   });
