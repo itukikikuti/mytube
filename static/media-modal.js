@@ -50,6 +50,43 @@ export function initMediaModal({
 
   window.playVideo = playVideo;
 
+  mediaModal.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    if (!mediaPlayer.duration) return;
+    const delta = e.deltaY < 0 ? 5 : -5;
+    mediaPlayer.currentTime = Math.max(0, Math.min(mediaPlayer.duration, mediaPlayer.currentTime + delta));
+  }, { passive: false });
+
+  let touchStartX = null;
+  let touchStartY = null;
+  let touchStartTime = null;
+  let isSeeking = false;
+  mediaModal.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    touchStartTime = mediaPlayer.currentTime;
+    isSeeking = false;
+  }, { passive: true });
+  mediaModal.addEventListener('touchmove', (e) => {
+    if (touchStartX === null || !mediaPlayer.duration) return;
+    const deltaX = e.touches[0].clientX - touchStartX;
+    const deltaY = e.touches[0].clientY - touchStartY;
+    if (!isSeeking) {
+      if (Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10) return;
+      if (Math.abs(deltaX) < Math.abs(deltaY)) return;
+      isSeeking = true;
+    }
+    e.preventDefault();
+    const seekDelta = deltaX;
+    mediaPlayer.currentTime = Math.max(0, Math.min(mediaPlayer.duration, touchStartTime + seekDelta * 0.1));
+  }, { passive: false });
+  mediaModal.addEventListener('touchend', () => {
+    touchStartX = null;
+    touchStartY = null;
+    touchStartTime = null;
+    isSeeking = false;
+  }, { passive: true });
+
   mediaModalClose.addEventListener('click', () => mediaModal.close());
   mediaModalPlayLocal.addEventListener('click', () => {
     if (!currentMediaId) return;
