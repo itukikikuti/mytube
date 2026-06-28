@@ -189,7 +189,7 @@ export function initMediaModal({
 
   window.playVideo = playVideo;
 
-  mediaModal.addEventListener('wheel', (e) => {
+  playerWrapper.addEventListener('wheel', (e) => {
     e.preventDefault();
     if (!mediaPlayer.duration) return;
     const delta = e.deltaY < 0 ? 5 : -5;
@@ -207,7 +207,7 @@ export function initMediaModal({
     touchStartTime = mediaPlayer.currentTime;
     isSeeking = false;
   }, { passive: true });
-  mediaModal.addEventListener('touchmove', (e) => {
+  playerWrapper.addEventListener('touchmove', (e) => {
     if (touchStartX === null || !mediaPlayer.duration) return;
     const deltaX = e.touches[0].clientX - touchStartX;
     const deltaY = e.touches[0].clientY - touchStartY;
