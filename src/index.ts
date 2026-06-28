@@ -129,7 +129,7 @@ app.get("/medias/:id", (c) => {
       data-play-count="${mediaItem.playCount}"
       data-rate="${mediaItem.rate}"
       data-title="${escapedTitle}"
-      onclick="playVideo('/videos/${encodeURIComponent(mediaItem.title)}', this)"
+      onclick="playVideo('/videos/${encodeURI(mediaItem.title)}', this)"
     >
       <div class="media-item-thumb">
         ${mediaItem.type === 'video' ? `
@@ -145,7 +145,7 @@ app.get("/medias/:id", (c) => {
           ` : ''}
           <span class="media-item-thumb-duration">${mediaDurationText}</span>
         ` : `
-          <img src="/videos/${encodeURIComponent(mediaItem.title)}" alt="${escapedTitle}" class="media-item-thumb-image">
+          <img src="/videos/${encodeURI(mediaItem.title)}" alt="${escapedTitle}" class="media-item-thumb-image">
         `}
       </div>
       <p class="media-item-title">${escapedTitle}</p>
