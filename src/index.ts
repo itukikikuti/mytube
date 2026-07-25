@@ -55,6 +55,8 @@ const app = new Hono()
 
 app.use('/static/*', serveStatic({ root: './' }))
 app.use('/videos/*', serveStatic({ root: './' }))
+// 2窓比較再生用（一時機能）: 変換前の元動画を配信
+app.use('/original/*', serveStatic({ root: './' }))
 
 app.get('/', serveStatic({ path: './static/index.html' }))
 

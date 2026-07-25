@@ -16,8 +16,69 @@ export function initMediaModal({
 
   const mediaImage = document.getElementById('media-image');
 
+  // ===== 2窓比較再生（一時機能） =====
+  const originalPlayer = document.getElementById('media-player-original');
+
+  function isComparing() {
+    return playerWrapper.classList.contains('is-compare');
+  }
+
+  function stopCompare() {
+    playerWrapper.classList.remove('is-compare', 'show-original');
+    originalPlayer.pause();
+    originalPlayer.removeAttribute('src');
+    originalPlayer.load();
+    originalPlayer.playbackRate = 1;
+  }
+
+  // original 側が存在しない（404等）場合は1窓に戻す
+  originalPlayer.addEventListener('error', () => {
+    if (originalPlayer.getAttribute('src')) stopCompare();
+  });
+
+  mediaPlayer.addEventListener('play', () => {
+    if (isComparing()) originalPlayer.play().catch(() => {});
+  });
+  mediaPlayer.addEventListener('pause', () => {
+    if (isComparing()) originalPlayer.pause();
+  });
+  mediaPlayer.addEventListener('seeking', () => {
+    if (isComparing()) originalPlayer.currentTime = mediaPlayer.currentTime;
+  });
+  originalPlayer.addEventListener('loadedmetadata', () => {
+    if (isComparing()) originalPlayer.currentTime = mediaPlayer.currentTime;
+  });
+
+  // 同期ループ: 小さなズレは再生速度の微調整で滑らかに追いつかせ、大きなズレだけシークで合わせる
+  let syncRaf = null;
+  function syncTick() {
+    if (!isComparing()) {
+      syncRaf = null;
+      return;
+    }
+    const drift = originalPlayer.currentTime - mediaPlayer.currentTime;
+    if (mediaPlayer.paused || Math.abs(drift) > 0.5) {
+      if (Math.abs(drift) > 0.03) originalPlayer.currentTime = mediaPlayer.currentTime;
+      originalPlayer.playbackRate = mediaPlayer.playbackRate;
+    } else {
+      const correction = Math.max(-0.25, Math.min(0.25, drift * 0.5));
+      originalPlayer.playbackRate = mediaPlayer.playbackRate * (1 - correction);
+    }
+    syncRaf = requestAnimationFrame(syncTick);
+  }
+  function startSyncLoop() {
+    if (syncRaf === null) syncRaf = requestAnimationFrame(syncTick);
+  }
+
   // ===== カスタムプレイヤーコントロール =====
   const playerWrapper = document.getElementById('player-wrapper');
+
+  // 重ね合わせ比較（一時機能）: フリッカーテスト。マウスが中央より左なら変換後、右なら元動画を瞬間切り替えで表示
+  playerWrapper.addEventListener('mousemove', (e) => {
+    if (!isComparing()) return;
+    const rect = playerWrapper.getBoundingClientRect();
+    playerWrapper.classList.toggle('show-original', e.clientX - rect.left > rect.width / 2);
+  });
   const playerPlayBtn = document.getElementById('player-play-btn');
   const playerSeekbar = document.getElementById('player-seekbar');
   const playerTimeDisplay = document.getElementById('player-time');
@@ -176,12 +237,19 @@ export function initMediaModal({
     const isImageType = type === 'image' || type === 'anime';
     currentMediaId = sourceElement?.closest('[data-media-id]')?.dataset.mediaId ?? null;
     if (sourceElement) setModalDetails(sourceElement);
+    stopCompare();
     if (isImageType) {
       playerWrapper.classList.add('is-image');
       mediaImage.src = src;
     } else {
       playerWrapper.classList.remove('is-image');
       mediaPlayer.src = src;
+      // 2窓比較再生（一時機能）: original 配下の同名ファイルを並べて再生
+      if (src.startsWith('/videos/')) {
+        playerWrapper.classList.add('is-compare');
+        originalPlayer.src = src.replace('/videos/', '/original/');
+        startSyncLoop();
+      }
     }
     mediaModal.showModal();
     if (!isImageType) mediaPlayer.play();
@@ -241,6 +309,7 @@ export function initMediaModal({
     mediaPlayer.pause();
     mediaPlayer.removeAttribute('src');
     mediaPlayer.load();
+    stopCompare();
     mediaImage.src = '';
     playerWrapper.classList.remove('is-image');
     clearModalDetails();
