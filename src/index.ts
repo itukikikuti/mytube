@@ -35,7 +35,17 @@ const ORDER_BY_MAP: Record<string, string> = {
 
 const db: Database.Database = new Database("data/db.sqlite")
 
-const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".jfif"])
+const MEDIA_TYPE_MAP: Record<string, string> = {
+  ".mp4":   "video",
+  ".mkv":   "video",
+  ".gif":   "anime",
+  ".jpg":   "image",
+  ".png":   "image",
+  ".webp":  "image",
+  ".jfif":  "image",
+  ".jpeg":  "image",
+  ".avif":  "image",
+}
 
 function probeDuration(path: string) {
   try {
@@ -61,11 +71,11 @@ function importNewMedias() {
 
   for (const name of readdirSync("videos")) {
     if (known.has(name)) continue
+    const type = MEDIA_TYPE_MAP[extname(name).toLowerCase()]
+    if (!type) continue
     const path = `videos/${name}`
     const stats = statSync(path)
     if (!stats.isFile()) continue
-    const extension = extname(name).toLowerCase()
-    const type = extension === ".gif" ? "anime" : IMAGE_EXTENSIONS.has(extension) ? "image" : "video"
     const date = Math.floor(stats.birthtimeMs / 1000)
     insert.run(name, date, type, type === "video" ? probeDuration(path) : 0, stats.size)
     console.log(`Imported ${name}`)
