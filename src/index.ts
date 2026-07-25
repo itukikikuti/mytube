@@ -3,6 +3,9 @@ import { serveStatic } from '@hono/node-server/serve-static'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import Database from "better-sqlite3"
+import { readdirSync, statSync } from 'node:fs'
+import { extname } from 'node:path'
+import { execFileSync } from 'node:child_process'
 
 const mediaItemRowSchema = z.object({
   id: z.number(),
@@ -31,6 +34,46 @@ const ORDER_BY_MAP: Record<string, string> = {
 }
 
 const db: Database.Database = new Database("data/db.sqlite")
+
+const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".jfif"])
+
+function probeDuration(path: string) {
+  try {
+    const seconds = Number(execFileSync(
+      "ffprobe",
+      ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path],
+      { encoding: "utf8" }
+    ))
+    return Number.isFinite(seconds) ? Math.floor(seconds) : 0
+  } catch {
+    return 0
+  }
+}
+
+function importNewMedias() {
+  const known = new Set(
+    (db.prepare("SELECT title FROM media_items").all() as { title: string }[]).map((row) => row.title)
+  )
+  const insert = db.prepare(`
+    INSERT INTO media_items (title, date, type, duration, rate, tags, thumbs, file_size)
+    VALUES (?, ?, ?, ?, 0, '[]', '[]', ?)
+  `)
+
+  for (const name of readdirSync("videos")) {
+    if (known.has(name)) continue
+    const path = `videos/${name}`
+    const stats = statSync(path)
+    if (!stats.isFile()) continue
+    const extension = extname(name).toLowerCase()
+    const type = extension === ".gif" ? "anime" : IMAGE_EXTENSIONS.has(extension) ? "image" : "video"
+    const date = Math.floor(stats.birthtimeMs / 1000)
+    insert.run(name, date, type, type === "video" ? probeDuration(path) : 0, stats.size)
+    console.log(`Imported ${name}`)
+  }
+}
+
+importNewMedias()
+setInterval(importNewMedias, 60_000)
 
 function escapeHtml(value: string | number) {
   return String(value).replace(/[&<>"']/g, (char) => ({
