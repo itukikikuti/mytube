@@ -15,6 +15,11 @@ export function initMediaModal({
   }
 
   const mediaImage = document.getElementById('media-image');
+  const mediaBook = document.getElementById('media-book');
+
+  const MODE_BY_TYPE = { image: 'image', anime: 'image', book: 'book' };
+  const modeOf = (type) => MODE_BY_TYPE[type] ?? 'video';
+  let currentMode = 'video';
 
   // ===== カスタムプレイヤーコントロール =====
   const playerWrapper = document.getElementById('player-wrapper');
@@ -94,6 +99,7 @@ export function initMediaModal({
 
   // ビデオ領域クリックで再生/停止トグル
   playerWrapper.addEventListener('click', (e) => {
+    if (currentMode !== 'video') return;
     if (e.target.closest('#player-play-btn, #player-fullscreen-btn, #player-seekbar')) return;
     if (mediaPlayer.paused) {
       mediaPlayer.play();
@@ -142,8 +148,7 @@ export function initMediaModal({
 
   function setModalDetails(sourceElement) {
     const rate = Math.max(0, Math.min(5, Number(sourceElement.dataset.rate) || 0));
-    const type = sourceElement.dataset.type ?? 'video';
-    const isImageType = type === 'image' || type === 'anime';
+    const mode = modeOf(sourceElement.dataset.type ?? 'video');
 
     mediaModalDate.textContent = sourceElement.dataset.date || '';
     mediaModalTitle.textContent = sourceElement.dataset.title || '';
@@ -151,7 +156,7 @@ export function initMediaModal({
     mediaModalPlayCount.textContent = `${Number(sourceElement.dataset.playCount) || 0}回`;
     mediaModalRate.innerHTML = `${'♥'.repeat(rate)}<span style="color: gray">${'♥'.repeat(5 - rate)}</span>`;
 
-    if (!isImageType) {
+    if (mode !== 'image') {
       mediaModalThumbs.replaceChildren(...Array.from(sourceElement.querySelectorAll('.media-item-thumb-image')).map((image) => {
         const thumb = image.cloneNode(false);
         thumb.className = 'media-modal-thumb';
@@ -172,19 +177,20 @@ export function initMediaModal({
   }
 
   function playVideo(src, sourceElement) {
-    const type = sourceElement?.dataset.type ?? 'video';
-    const isImageType = type === 'image' || type === 'anime';
+    currentMode = modeOf(sourceElement?.dataset.type ?? 'video');
     currentMediaId = sourceElement?.closest('[data-media-id]')?.dataset.mediaId ?? null;
     if (sourceElement) setModalDetails(sourceElement);
-    if (isImageType) {
-      playerWrapper.classList.add('is-image');
+    playerWrapper.classList.toggle('is-image', currentMode === 'image');
+    playerWrapper.classList.toggle('is-book', currentMode === 'book');
+    if (currentMode === 'image') {
       mediaImage.src = src;
+    } else if (currentMode === 'book') {
+      mediaBook.src = src;
     } else {
-      playerWrapper.classList.remove('is-image');
       mediaPlayer.src = src;
     }
     mediaModal.showModal();
-    if (!isImageType) mediaPlayer.play();
+    if (currentMode === 'video') mediaPlayer.play();
   }
 
   window.playVideo = playVideo;
@@ -242,8 +248,10 @@ export function initMediaModal({
     mediaPlayer.removeAttribute('src');
     mediaPlayer.load();
     mediaImage.src = '';
-    playerWrapper.classList.remove('is-image');
+    mediaBook.removeAttribute('src');
+    playerWrapper.classList.remove('is-image', 'is-book');
     clearModalDetails();
     currentMediaId = null;
+    currentMode = 'video';
   });
 }

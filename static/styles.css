@@ -476,6 +476,23 @@ body:has(#media-modal[open]) {
   display: block;
 }
 
+#media-book {
+  display: none;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+}
+
+#player-wrapper.is-book #media-player,
+#player-wrapper.is-book #player-controls {
+  display: none;
+}
+
+#player-wrapper.is-book #media-book {
+  display: block;
+}
+
 /* ===== カスタムプレイヤーコントロール ===== */
 #player-controls {
   position: absolute;
@@ -752,6 +769,11 @@ body:has(#media-modal[open]) {
   #player-wrapper {
     height: auto;
     max-height: 46vh;
+  }
+
+  #player-wrapper.is-book {
+    height: 70vh;
+    max-height: none;
   }
 
   #media-modal-sidebar {

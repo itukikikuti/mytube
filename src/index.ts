@@ -38,6 +38,7 @@ const db: Database.Database = new Database("data/db.sqlite")
 const MEDIA_TYPE_MAP: Record<string, string> = {
   ".mp4":   "video",
   ".mkv":   "video",
+  ".pdf":   "book",
   ".gif":   "anime",
   ".jpg":   "image",
   ".png":   "image",
@@ -186,7 +187,7 @@ app.get("/medias/:id", (c) => {
       onclick="playVideo('/videos/${encodeURI(mediaItem.title)}', this)"
     >
       <div class="media-item-thumb">
-        ${mediaItem.type === 'video' ? `
+        ${mediaItem.type === 'video' || mediaItem.type === 'book' ? `
           <div class="media-item-thumb-viewport">
             <div class="media-item-thumb-track">
               ${mediaItem.thumbs.map((thumb) => `<img src="data:image/jpeg;base64,${thumb}" alt="${escapedTitle} thumbnail" class="media-item-thumb-image">`).join('')}
@@ -197,15 +198,17 @@ app.get("/medias/:id", (c) => {
               ${mediaItem.thumbs.map((_, index) => `<div class="media-item-thumb-indicator${index === 0 ? ' is-active' : ''}"></div>`).join('')}
             </div>
           ` : ''}
-          <video
-            class="media-item-preview"
-            muted
-            loop
-            playsinline
-            preload="none"
-            data-src="/videos/${encodeURI(mediaItem.title)}"
-          ></video>
-          <span class="media-item-thumb-duration">${mediaDurationText}</span>
+          ${mediaItem.type === 'video' ? `
+            <video
+              class="media-item-preview"
+              muted
+              loop
+              playsinline
+              preload="none"
+              data-src="/videos/${encodeURI(mediaItem.title)}"
+            ></video>
+            <span class="media-item-thumb-duration">${mediaDurationText}</span>
+          ` : ''}
         ` : `
           <img src="/videos/${encodeURI(mediaItem.title)}" alt="${escapedTitle}" class="media-item-thumb-image">
         `}
