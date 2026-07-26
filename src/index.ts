@@ -221,13 +221,17 @@ app.get("/medias/:id", (c) => {
   const mediaDateTimeText = mediaDate.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
   const mediaDurationText = escapeHtml(formatDuration(mediaItem.duration))
   const mediaFileSizeText = escapeHtml(formatFileSize(mediaItem.file_size))
+  // モーダルには正確なバイト数も出す
+  const mediaFileSizeDetail = mediaItem.file_size > 0
+    ? escapeHtml(`${formatFileSize(mediaItem.file_size)} (${mediaItem.file_size.toLocaleString("ja-JP")} バイト)`)
+    : ""
 
   return c.html(`
     <div
       data-type="${mediaItem.type}"
       data-date="${escapeHtml(mediaDateTimeText)}"
       data-duration="${mediaDurationText}"
-      data-size="${mediaFileSizeText}"
+      data-size="${mediaFileSizeDetail}"
       data-play-count="${mediaItem.playCount}"
       data-rate="${mediaItem.rate}"
       data-title="${escapedTitle}"
