@@ -242,6 +242,24 @@ export function initMediaModal({
     mediaModalThumbs.replaceChildren();
   }
 
+  // PDFは iframe だとスマホで表示できないので、サーバーが返すページ画像を縦に並べる。
+  // 実物は数百MBあるため、aspect-ratio で場所だけ確保して遅延読み込みに任せる。
+  function showBookPages(sourceElement) {
+    const pages = Number(sourceElement?.dataset.pages) || 0;
+    const ratio = Number(sourceElement?.dataset.pageRatio) || 0.7;
+
+    mediaBook.style.setProperty('--page-ratio', String(ratio));
+    mediaBook.replaceChildren(...Array.from({ length: pages }, (_, i) => {
+      const page = document.createElement('img');
+      page.className = 'media-book-page';
+      page.loading = 'lazy';
+      page.alt = `${i + 1}ページ`;
+      page.src = `/medias/${encodeURIComponent(currentMediaId)}/pages/${i + 1}`;
+      return page;
+    }));
+    mediaBook.scrollTop = 0;
+  }
+
   function playVideo(src, sourceElement) {
     currentMode = modeOf(sourceElement?.dataset.type ?? 'video');
     currentMediaId = sourceElement?.closest('[data-media-id]')?.dataset.mediaId ?? null;
@@ -251,7 +269,7 @@ export function initMediaModal({
     if (currentMode === 'image') {
       mediaImage.src = src;
     } else if (currentMode === 'book') {
-      mediaBook.src = src;
+      showBookPages(sourceElement);
     } else {
       mediaPlayer.src = src;
     }
@@ -368,7 +386,7 @@ export function initMediaModal({
     mediaPlayer.removeAttribute('src');
     mediaPlayer.load();
     mediaImage.src = '';
-    mediaBook.removeAttribute('src');
+    mediaBook.replaceChildren();
     playerWrapper.classList.remove('is-image', 'is-book');
     clearModalDetails();
     currentMediaId = null;

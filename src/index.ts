@@ -3,9 +3,12 @@ import { serveStatic } from '@hono/node-server/serve-static'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import Database from "better-sqlite3"
-import { copyFileSync, mkdirSync, readdirSync, renameSync, statSync, unlinkSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync } from 'node:fs'
 import { extname } from 'node:path'
-import { execFileSync } from 'node:child_process'
+import { execFile, execFileSync } from 'node:child_process'
+import { promisify } from 'node:util'
+
+const execFileAsync = promisify(execFile)
 
 const mediaItemRowSchema = z.object({
   id: z.number(),
@@ -162,6 +165,58 @@ function formatFileSize(bytes: number, precise = false): string {
   return `${text}${FILE_SIZE_UNITS[unit]}`
 }
 
+// ===== PDF をページ画像として配信する =====
+// スマホのブラウザは iframe 内のPDFを描画しないうえ、実物は数百MBあって
+// 丸ごと転送できないため、見ているページだけをJPEGにして返す。
+const PAGE_DIR = "data/pages"
+const pdfInfoCache = new Map<string, { pages: number, ratio: number }>()
+const pageRenders = new Map<string, Promise<string>>()
+
+function pdfInfo(id: string, title: string) {
+  const cached = pdfInfoCache.get(id)
+  if (cached) return cached
+
+  let info = { pages: 0, ratio: 0.7 }
+  try {
+    const out = execFileSync("pdfinfo", [`videos/${title}`], { encoding: "utf8" })
+    const size = out.match(/^Page size:\s+([\d.]+) x ([\d.]+)/m)
+    info = {
+      pages: Number(out.match(/^Pages:\s+(\d+)/m)?.[1] ?? 0),
+      ratio: size ? Number(size[1]) / Number(size[2]) : 0.7,
+    }
+  } catch {
+    // 壊れている場合はページ0件として扱う
+  }
+
+  pdfInfoCache.set(id, info)
+  return info
+}
+
+function renderPage(id: string, title: string, page: number) {
+  const file = `${PAGE_DIR}/${id}/${page}.jpg`
+  if (existsSync(file)) return Promise.resolve(file)
+
+  // 連続でめくられたときに同じページを何度も変換しない
+  const key = `${id}/${page}`
+  const running = pageRenders.get(key)
+  if (running) return running
+
+  const task = (async () => {
+    mkdirSync(`${PAGE_DIR}/${id}`, { recursive: true })
+    // -singlefile なので出力は <prefix>.jpg になる
+    await execFileAsync("pdftoppm", [
+      "-jpeg", "-jpegopt", "quality=80",
+      "-scale-to-x", "1200", "-scale-to-y", "-1",
+      "-f", String(page), "-l", String(page), "-singlefile",
+      `videos/${title}`, `${PAGE_DIR}/${id}/${page}`,
+    ])
+    return file
+  })().finally(() => pageRenders.delete(key))
+
+  pageRenders.set(key, task)
+  return task
+}
+
 const app = new Hono()
 
 app.use('/static/*', serveStatic({ root: './' }))
@@ -241,6 +296,7 @@ app.get("/medias/:id", (c) => {
   const mediaDurationText = escapeHtml(formatDuration(mediaItem.duration))
   const mediaFileSizeText = escapeHtml(formatFileSize(mediaItem.file_size))
   const mediaFileSizeDetail = escapeHtml(formatFileSize(mediaItem.file_size, true))
+  const book = mediaItem.type === "book" ? pdfInfo(String(mediaItem.id), mediaItem.title) : null
 
   return c.html(`
     <div
@@ -252,6 +308,7 @@ app.get("/medias/:id", (c) => {
       data-rate="${mediaItem.rate}"
       data-title="${escapedTitle}"
       data-url="${escapeHtml(videoUrl(mediaItem.title))}"
+      ${book ? `data-pages="${book.pages}" data-page-ratio="${book.ratio.toFixed(4)}"` : ''}
     >
       <div class="media-item-thumb">
         ${mediaItem.type === 'video' || mediaItem.type === 'book' ? `
@@ -303,6 +360,30 @@ function readThumbs(id: string) {
 function writeThumbs(id: string, thumbs: string[]) {
   db.prepare("UPDATE media_items SET thumbs = ? WHERE id = ?").run(JSON.stringify(thumbs), id)
 }
+
+app.get("/medias/:id/pages/:page", async (c) => {
+  const id = c.req.param("id")
+  const row = db.prepare("SELECT title, type FROM media_items WHERE id = ?").get(id) as { title: string, type: string } | undefined
+  if (!row || row.type !== "book") {
+    return c.notFound()
+  }
+
+  const page = Number(c.req.param("page"))
+  if (!Number.isInteger(page) || page < 1 || page > pdfInfo(id, row.title).pages) {
+    return c.text("invalid page", 400)
+  }
+
+  try {
+    const file = await renderPage(id, row.title, page)
+    return c.body(readFileSync(file), 200, {
+      "Content-Type": "image/jpeg",
+      "Cache-Control": "public, max-age=31536000, immutable",
+    })
+  } catch (error) {
+    console.error(`Failed to render page ${page} of ${row.title}:`, error)
+    return c.text("render failed", 500)
+  }
+})
 
 app.post("/medias/:id/thumbs", async (c) => {
   const { thumb } = await c.req.json()
