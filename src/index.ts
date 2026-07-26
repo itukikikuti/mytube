@@ -27,6 +27,8 @@ const ORDER_BY_MAP: Record<string, string> = {
   recent:         "(SELECT MAX(date) FROM history_items WHERE media = media_items.id) DESC",
   duration_desc:  "duration DESC",
   duration_asc:   "duration ASC",
+  size_desc:      "file_size DESC",
+  size_asc:       "file_size ASC",
   rate_desc:      "rate DESC",
   play_count:     "(SELECT COUNT(*) FROM history_items WHERE media = media_items.id) DESC",
   shuffle:        "RANDOM()",
