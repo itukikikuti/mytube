@@ -751,6 +751,11 @@ body:has(#media-modal[open]) {
   cursor: pointer;
 }
 
+/* display 指定がID詳細度なので、標準の [hidden] より強く打ち消す必要がある */
+#media-modal-thumb-add[hidden] {
+  display: none;
+}
+
 #media-modal-thumb-add:active {
   box-shadow: var(--shadow-concave-sm);
 }
