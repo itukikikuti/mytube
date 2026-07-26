@@ -133,7 +133,7 @@ function formatDuration(seconds: number): string {
 
 const FILE_SIZE_UNITS = ["B", "KB", "MB", "GB", "TB"]
 
-function formatFileSize(bytes: number): string {
+function formatFileSize(bytes: number, precise = false): string {
   if (bytes <= 0) return ""
 
   let value = bytes
@@ -143,7 +143,10 @@ function formatFileSize(bytes: number): string {
     unit++
   }
 
-  // 幅を抑えるため、10未満のときだけ小数第1位まで出す
+  // モーダルは幅の制約が無いので小数第2位まで出す
+  if (precise && unit > 0) return `${value.toFixed(2)}${FILE_SIZE_UNITS[unit]}`
+
+  // 一覧は幅を抑えるため、10未満のときだけ小数第1位まで出す
   const text = unit === 0 || value >= 10
     ? String(Math.round(value))
     : value.toFixed(1).replace(/\.0$/, "")
@@ -221,10 +224,7 @@ app.get("/medias/:id", (c) => {
   const mediaDateTimeText = mediaDate.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
   const mediaDurationText = escapeHtml(formatDuration(mediaItem.duration))
   const mediaFileSizeText = escapeHtml(formatFileSize(mediaItem.file_size))
-  // モーダルには正確なバイト数も出す
-  const mediaFileSizeDetail = mediaItem.file_size > 0
-    ? escapeHtml(`${formatFileSize(mediaItem.file_size)} (${mediaItem.file_size.toLocaleString("ja-JP")} バイト)`)
-    : ""
+  const mediaFileSizeDetail = escapeHtml(formatFileSize(mediaItem.file_size, true))
 
   return c.html(`
     <div
