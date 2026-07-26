@@ -5,10 +5,7 @@ import { z } from 'zod'
 import Database from "better-sqlite3"
 import { readdirSync, statSync } from 'node:fs'
 import { extname } from 'node:path'
-import { execFile, execFileSync } from 'node:child_process'
-import { promisify } from 'node:util'
-
-const execFileAsync = promisify(execFile)
+import { execFileSync } from 'node:child_process'
 
 const mediaItemRowSchema = z.object({
   id: z.number(),
@@ -87,60 +84,7 @@ function importNewMedias() {
   }
 }
 
-// file_size カラム追加より前に取り込んだ分を埋める
-function backfillFileSizes() {
-  const rows = db.prepare("SELECT id, title FROM media_items WHERE file_size = 0").all() as { id: number, title: string }[]
-  if (!rows.length) return
-
-  const update = db.prepare("UPDATE media_items SET file_size = ? WHERE id = ?")
-  let filled = 0
-
-  for (const row of rows) {
-    try {
-      const stats = statSync(`videos/${row.title}`)
-      if (!stats.isFile()) continue
-      update.run(stats.size, row.id)
-      filled++
-    } catch {
-      // ファイルが消えている場合は 0 のままにする
-    }
-  }
-
-  console.log(`Backfilled file_size for ${filled} medias`)
-}
-
-// duration が入っていない動画を埋める
-// ffprobe は statSync より桁違いに遅いので、非同期にして起動を止めないようにする
-async function backfillDurations() {
-  const rows = db.prepare("SELECT id, title FROM media_items WHERE type = 'video' AND duration = 0")
-    .all() as { id: number, title: string }[]
-  if (!rows.length) return
-
-  const update = db.prepare("UPDATE media_items SET duration = ? WHERE id = ?")
-  let filled = 0
-
-  for (const row of rows) {
-    let duration = 0
-    try {
-      const { stdout } = await execFileAsync(
-        "ffprobe",
-        ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", `videos/${row.title}`]
-      )
-      const seconds = Number(stdout)
-      duration = Number.isFinite(seconds) ? Math.floor(seconds) : 0
-    } catch {
-      // ファイルが消えている・壊れている場合は 0 のままにする
-    }
-    if (!duration) continue
-    update.run(duration, row.id)
-    filled++
-  }
-
-  console.log(`Backfilled duration for ${filled} medias`)
-}
-
 importNewMedias()
-backfillFileSizes()
 setInterval(importNewMedias, 60_000)
 
 function escapeHtml(value: string | number) {
@@ -314,6 +258,3 @@ const port = Number(process.env.PORT ?? 3000)
 serve({ fetch: app.fetch, port })
 
 console.log(`Server running at http://localhost:${port}`)
-
-// 起動を待たせないよう、サーバーを立ち上げてから裏で流す
-backfillDurations()
