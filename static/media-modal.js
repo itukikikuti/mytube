@@ -197,10 +197,10 @@ export function initMediaModal({
   mediaModalThumbAdd.addEventListener('click', async () => {
     if (currentMode !== 'video' || !currentMediaId || !mediaPlayer.videoWidth) return;
 
-    // 既存のサムネイルと同じ幅に合わせ、縦横比は動画のまま
+    // 既存のサムネイルに合わせて高さ180px基準。幅は動画の縦横比で決まる
     const canvas = document.createElement('canvas');
-    canvas.width = 320;
-    canvas.height = Math.round((canvas.width * mediaPlayer.videoHeight) / mediaPlayer.videoWidth);
+    canvas.height = 180;
+    canvas.width = Math.round((canvas.height * mediaPlayer.videoWidth) / mediaPlayer.videoHeight);
     canvas.getContext('2d').drawImage(mediaPlayer, 0, 0, canvas.width, canvas.height);
     const thumb = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
 
