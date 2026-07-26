@@ -4,6 +4,8 @@ export function initMediaModal({
   mediaModal,
   mediaModalClose,
   mediaPlayer,
+  playerPrev,
+  playerNext,
   mediaModalDate,
   mediaModalTitle,
   mediaModalDuration,
@@ -14,7 +16,7 @@ export function initMediaModal({
   mediaModalThumbAdd,
   mediaModalPlayLocal,
 }) {
-  if (!mediaModal || !mediaModalClose || !mediaPlayer || !mediaModalDate || !mediaModalTitle || !mediaModalDuration || !mediaModalRate || !mediaModalThumbs || !mediaModalThumbAdd || !mediaModalPlayLocal) {
+  if (!mediaModal || !mediaModalClose || !mediaPlayer || !playerPrev || !playerNext || !mediaModalDate || !mediaModalTitle || !mediaModalDuration || !mediaModalRate || !mediaModalThumbs || !mediaModalThumbAdd || !mediaModalPlayLocal) {
     return;
   }
 
@@ -99,7 +101,7 @@ export function initMediaModal({
   // ビデオ領域クリックで再生/停止トグル
   playerWrapper.addEventListener('click', (e) => {
     if (currentMode !== 'video') return;
-    if (e.target.closest('#player-play-btn, #player-fullscreen-btn, #player-seekbar')) return;
+    if (e.target.closest('#player-play-btn, #player-fullscreen-btn, #player-seekbar, #player-prev, #player-next')) return;
     if (mediaPlayer.paused) {
       mediaPlayer.play();
     } else {
@@ -254,9 +256,59 @@ export function initMediaModal({
     }
     mediaModal.showModal();
     if (currentMode === 'video') mediaPlayer.play();
+    updateNavButtons();
   }
 
   window.playVideo = playVideo;
+
+  // ===== 一覧の並び順で前後に移動する =====
+  function siblingOf(container, step) {
+    let target = step < 0 ? container.previousElementSibling : container.nextElementSibling;
+    while (target && !target.dataset.mediaId) {
+      target = step < 0 ? target.previousElementSibling : target.nextElementSibling;
+    }
+    return target;
+  }
+
+  function currentContainer() {
+    return currentMediaId ? document.querySelector(`[data-media-id="${currentMediaId}"]`) : null;
+  }
+
+  function updateNavButtons() {
+    const container = currentContainer();
+    playerPrev.disabled = !container || !siblingOf(container, -1);
+    playerNext.disabled = !container || !siblingOf(container, 1);
+  }
+
+  async function openSibling(step) {
+    const container = currentContainer();
+    const target = container && siblingOf(container, step);
+    if (!target) return;
+
+    // 一覧は画面外だと中身が空になるので、必要なら取り直す
+    let source = target.firstElementChild;
+    if (!source?.dataset.url) {
+      const response = await fetch(`/medias/${encodeURIComponent(target.dataset.mediaId)}`);
+      if (!response.ok) return;
+      target.innerHTML = await response.text();
+      target.dataset.loaded = 'true';
+      source = target.firstElementChild;
+    }
+    if (!source?.dataset.url) return;
+
+    target.scrollIntoView({ block: 'center' });
+    playVideo(source.dataset.url, source);
+  }
+
+  playerPrev.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openSibling(-1);
+  });
+
+  playerNext.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openSibling(1);
+  });
 
   playerWrapper.addEventListener('wheel', (e) => {
     e.preventDefault();

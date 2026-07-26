@@ -19,6 +19,8 @@ initMediaModal({
   mediaModal: document.getElementById('media-modal'),
   mediaModalClose: document.getElementById('media-modal-close'),
   mediaPlayer: document.getElementById('media-player'),
+  playerPrev: document.getElementById('player-prev'),
+  playerNext: document.getElementById('player-next'),
   mediaModalDate: document.getElementById('media-modal-date'),
   mediaModalTitle: document.getElementById('media-modal-title'),
   mediaModalDuration: document.getElementById('media-modal-duration'),

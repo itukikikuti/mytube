@@ -493,6 +493,50 @@ body:has(#media-modal[open]) {
   display: block;
 }
 
+/* ===== 前後のメディアへの移動 ===== */
+#player-prev,
+#player-next {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  transform: translateY(-50%);
+  color: #fff;
+  background: rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+#player-prev { left: 14px; }
+#player-next { right: 14px; }
+
+#player-prev:hover,
+#player-next:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+/* 端まで来たら押せなくする */
+#player-prev:disabled,
+#player-next:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#player-prev .lucide,
+#player-prev [data-lucide],
+#player-next .lucide,
+#player-next [data-lucide] {
+  width: 24px;
+  height: 24px;
+}
+
 /* ===== カスタムプレイヤーコントロール ===== */
 #player-controls {
   position: absolute;

@@ -251,6 +251,7 @@ app.get("/medias/:id", (c) => {
       data-play-count="${mediaItem.playCount}"
       data-rate="${mediaItem.rate}"
       data-title="${escapedTitle}"
+      data-url="${videoUrl(mediaItem.title)}"
       onclick="playVideo('${videoUrl(mediaItem.title)}', this)"
     >
       <div class="media-item-thumb">
