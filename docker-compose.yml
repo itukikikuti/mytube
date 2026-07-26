@@ -7,18 +7,17 @@ services:
       - PORT=3000
       - TZ=Asia/Tokyo
     volumes:
-      - nasdata:/app/data
-      - /mnt/nas/Videos:/app/videos
+      - ./data:/app/data
+      - nasvideos:/app/videos
     restart: unless-stopped
 
 volumes:
-  # NAS 上の data フォルダを Docker 自身に CIFS マウントさせる。
-  # nobrl が必須: これが無いと SQLite の排他ロック昇格が SMB で EACCES になり
-  # 「database is locked」で書き込めない。
-  # 副作用としてロックがサーバー間で効かなくなるため、この DB に書き込むのは常に1プロセスだけにすること。
-  nasdata:
+  # NAS を Docker 自身に CIFS マウントさせる。
+  # ホストの /mnt/nas は fstab に無く再起動で消えるため、そこには依存しない。
+  # DB 本体はローカルの ./data に置き、NAS 上で SQLite を開かないので nobrl は不要。
+  nasvideos:
     driver: local
     driver_opts:
       type: cifs
-      device: "//10.0.0.141/Share/Videos/data"
-      o: "username=${NAS_USER},password=${NAS_PASS},vers=3.1.1,uid=1000,gid=1000,forceuid,forcegid,file_mode=0644,dir_mode=0755,iocharset=utf8,soft,actimeo=1,nobrl"
+      device: "//10.0.0.141/Share/Videos"
+      o: "username=${NAS_USER},password=${NAS_PASS},vers=3.1.1,uid=1000,gid=1000,forceuid,forcegid,file_mode=0644,dir_mode=0755,iocharset=utf8,soft,actimeo=1"
