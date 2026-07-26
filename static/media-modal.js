@@ -5,6 +5,7 @@ export function initMediaModal({
   mediaModalDate,
   mediaModalTitle,
   mediaModalDuration,
+  mediaModalSize,
   mediaModalPlayCount,
   mediaModalRate,
   mediaModalThumbs,
@@ -148,6 +149,7 @@ export function initMediaModal({
     mediaModalDate.textContent = sourceElement.dataset.date || '';
     mediaModalTitle.textContent = sourceElement.dataset.title || '';
     mediaModalDuration.textContent = sourceElement.dataset.duration || '';
+    mediaModalSize.textContent = sourceElement.dataset.size || '';
     mediaModalPlayCount.textContent = `${Number(sourceElement.dataset.playCount) || 0}回`;
     mediaModalRate.innerHTML = `${'♥'.repeat(rate)}<span style="color: gray">${'♥'.repeat(5 - rate)}</span>`;
 
@@ -166,6 +168,7 @@ export function initMediaModal({
     mediaModalDate.textContent = '';
     mediaModalTitle.textContent = '';
     mediaModalDuration.textContent = '';
+    mediaModalSize.textContent = '';
     mediaModalPlayCount.textContent = '';
     mediaModalRate.textContent = '';
     mediaModalThumbs.replaceChildren();

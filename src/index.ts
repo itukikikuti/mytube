@@ -227,6 +227,7 @@ app.get("/medias/:id", (c) => {
       data-type="${mediaItem.type}"
       data-date="${escapeHtml(mediaDateTimeText)}"
       data-duration="${mediaDurationText}"
+      data-size="${mediaFileSizeText}"
       data-play-count="${mediaItem.playCount}"
       data-rate="${mediaItem.rate}"
       data-title="${escapedTitle}"
