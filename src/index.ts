@@ -122,6 +122,12 @@ function escapeHtml(value: string | number) {
   })[char]!)
 }
 
+// # を素のまま出すとブラウザがフラグメント扱いしてURLが途中で切れるため %23 にする。
+// 他の文字は encodeURI のままにする（サーバー側が decodeURI で戻すため）。
+function videoUrl(title: string) {
+  return `/videos/${encodeURI(title).replace(/#/g, "%23")}`
+}
+
 function formatDuration(seconds: number): string {
   const total = Math.max(0, Math.floor(seconds))
   const h = Math.floor(total / 3600)
@@ -156,7 +162,14 @@ function formatFileSize(bytes: number, precise = false): string {
 const app = new Hono()
 
 app.use('/static/*', serveStatic({ root: './' }))
-app.use('/videos/*', serveStatic({ root: './' }))
+// videoUrl() で %23 にした # を戻す。
+// serveStatic はパスを decodeURI で戻すが、decodeURI は予約文字の %XX を復号しないため。
+// ここで戻すのは # だけにする（/ や .. を復号すると、この直前に済んでいる
+// パストラバーサル検査をすり抜けてしまうため）。
+app.use('/videos/*', serveStatic({
+  root: './',
+  rewriteRequestPath: (path) => path.replace(/%23/g, "#"),
+}))
 
 app.get('/', serveStatic({ path: './static/index.html' }))
 
@@ -235,7 +248,7 @@ app.get("/medias/:id", (c) => {
       data-play-count="${mediaItem.playCount}"
       data-rate="${mediaItem.rate}"
       data-title="${escapedTitle}"
-      onclick="playVideo('/videos/${encodeURI(mediaItem.title)}', this)"
+      onclick="playVideo('${videoUrl(mediaItem.title)}', this)"
     >
       <div class="media-item-thumb">
         ${mediaItem.type === 'video' || mediaItem.type === 'book' ? `
@@ -256,12 +269,12 @@ app.get("/medias/:id", (c) => {
               loop
               playsinline
               preload="none"
-              data-src="/videos/${encodeURI(mediaItem.title)}"
+              data-src="${videoUrl(mediaItem.title)}"
             ></video>
             <span class="media-item-thumb-duration">${mediaDurationText}</span>
           ` : ''}
         ` : `
-          <img src="/videos/${encodeURI(mediaItem.title)}" alt="${escapedTitle}" class="media-item-thumb-image">
+          <img src="${videoUrl(mediaItem.title)}" alt="${escapedTitle}" class="media-item-thumb-image">
         `}
       </div>
       <p class="media-item-title">${escapedTitle}</p>
