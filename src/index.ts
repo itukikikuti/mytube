@@ -276,6 +276,50 @@ app.get("/medias/:id", (c) => {
   `)
 })
 
+// 320x180 の JPEG なら base64 で2万文字程度。桁違いのものは弾く
+const MAX_THUMB_LENGTH = 1_000_000
+
+function readThumbs(id: string) {
+  const row = db.prepare("SELECT thumbs FROM media_items WHERE id = ?").get(id) as { thumbs: string } | undefined
+  return row ? z.array(z.string()).parse(JSON.parse(row.thumbs)) : null
+}
+
+function writeThumbs(id: string, thumbs: string[]) {
+  db.prepare("UPDATE media_items SET thumbs = ? WHERE id = ?").run(JSON.stringify(thumbs), id)
+}
+
+app.post("/medias/:id/thumbs", async (c) => {
+  const { thumb } = await c.req.json()
+  if (typeof thumb !== "string" || !thumb || thumb.length > MAX_THUMB_LENGTH || !/^[A-Za-z0-9+/]+={0,2}$/.test(thumb)) {
+    return c.text("invalid thumb", 400)
+  }
+
+  const thumbs = readThumbs(c.req.param("id"))
+  if (!thumbs) {
+    return c.notFound()
+  }
+
+  thumbs.push(thumb)
+  writeThumbs(c.req.param("id"), thumbs)
+  return c.body(null, 204)
+})
+
+app.delete("/medias/:id/thumbs/:index", (c) => {
+  const thumbs = readThumbs(c.req.param("id"))
+  if (!thumbs) {
+    return c.notFound()
+  }
+
+  const index = Number(c.req.param("index"))
+  if (!Number.isInteger(index) || index < 0 || index >= thumbs.length) {
+    return c.text("invalid index", 400)
+  }
+
+  thumbs.splice(index, 1)
+  writeThumbs(c.req.param("id"), thumbs)
+  return c.body(null, 204)
+})
+
 app.post("/history", async (c) => {
   const { media } = await c.req.json()
   db.prepare("INSERT INTO history_items (media, date) VALUES (?, ?)")

@@ -733,6 +733,76 @@ body:has(#media-modal[open]) {
   box-shadow: var(--shadow-convex-sm);
 }
 
+#media-modal-thumb-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 18px;
+  padding: 11px 16px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  font: inherit;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--bg);
+  box-shadow: var(--shadow-convex-sm);
+  cursor: pointer;
+}
+
+#media-modal-thumb-add:active {
+  box-shadow: var(--shadow-concave-sm);
+}
+
+#media-modal-thumb-add:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+#media-modal-thumb-add .lucide,
+#media-modal-thumb-add [data-lucide] {
+  width: 18px;
+  height: 18px;
+}
+
+.media-modal-thumb-item {
+  position: relative;
+  display: grid;
+}
+
+.media-modal-thumb-delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+
+.media-modal-thumb-delete:hover {
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.media-modal-thumb-delete:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.media-modal-thumb-delete .lucide,
+.media-modal-thumb-delete [data-lucide] {
+  width: 16px;
+  height: 16px;
+}
+
 /* ===== レスポンシブ ===== */
 @media (max-width: 768px) {
   body {

@@ -26,6 +26,7 @@ initMediaModal({
   mediaModalPlayCount: document.getElementById('media-modal-play-count'),
   mediaModalRate: document.getElementById('media-modal-rate'),
   mediaModalThumbs: document.getElementById('media-modal-thumbs'),
+  mediaModalThumbAdd: document.getElementById('media-modal-thumb-add'),
   mediaModalPlayLocal: document.getElementById('media-modal-play-local'),
 });
 

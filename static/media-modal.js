@@ -1,3 +1,5 @@
+import { renderIcons } from './icons.js';
+
 export function initMediaModal({
   mediaModal,
   mediaModalClose,
@@ -9,9 +11,10 @@ export function initMediaModal({
   mediaModalPlayCount,
   mediaModalRate,
   mediaModalThumbs,
+  mediaModalThumbAdd,
   mediaModalPlayLocal,
 }) {
-  if (!mediaModal || !mediaModalClose || !mediaPlayer || !mediaModalDate || !mediaModalTitle || !mediaModalDuration || !mediaModalRate || !mediaModalThumbs || !mediaModalPlayLocal) {
+  if (!mediaModal || !mediaModalClose || !mediaPlayer || !mediaModalDate || !mediaModalTitle || !mediaModalDuration || !mediaModalRate || !mediaModalThumbs || !mediaModalThumbAdd || !mediaModalPlayLocal) {
     return;
   }
 
@@ -153,16 +156,78 @@ export function initMediaModal({
     mediaModalPlayCount.textContent = `${Number(sourceElement.dataset.playCount) || 0}回`;
     mediaModalRate.innerHTML = `${'♥'.repeat(rate)}<span style="color: gray">${'♥'.repeat(5 - rate)}</span>`;
 
+    mediaModalThumbAdd.hidden = mode !== 'video';
+
     if (mode !== 'image') {
-      mediaModalThumbs.replaceChildren(...Array.from(sourceElement.querySelectorAll('.media-item-thumb-image')).map((image) => {
+      mediaModalThumbs.replaceChildren(...Array.from(sourceElement.querySelectorAll('.media-item-thumb-image')).map((image, index) => {
         const thumb = image.cloneNode(false);
         thumb.className = 'media-modal-thumb';
-        return thumb;
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'media-modal-thumb-delete';
+        remove.dataset.index = String(index);
+        remove.setAttribute('aria-label', 'このサムネイルを削除');
+        remove.innerHTML = '<i data-lucide="trash-2"></i>';
+
+        const item = document.createElement('div');
+        item.className = 'media-modal-thumb-item';
+        item.append(thumb, remove);
+        return item;
       }));
+      renderIcons();
     } else {
       mediaModalThumbs.replaceChildren();
     }
   }
+
+  // サムネイルを追加・削除したあと、一覧のカードとモーダルを作り直す
+  async function reloadMediaDetails() {
+    const container = document.querySelector(`[data-media-id="${currentMediaId}"]`);
+    if (!container) return;
+
+    const response = await fetch(`/medias/${encodeURIComponent(currentMediaId)}`);
+    if (!response.ok) return;
+
+    container.innerHTML = await response.text();
+    const source = container.firstElementChild;
+    if (source) setModalDetails(source);
+  }
+
+  mediaModalThumbAdd.addEventListener('click', async () => {
+    if (currentMode !== 'video' || !currentMediaId || !mediaPlayer.videoWidth) return;
+
+    // 既存のサムネイルと同じ幅に合わせ、縦横比は動画のまま
+    const canvas = document.createElement('canvas');
+    canvas.width = 320;
+    canvas.height = Math.round((canvas.width * mediaPlayer.videoHeight) / mediaPlayer.videoWidth);
+    canvas.getContext('2d').drawImage(mediaPlayer, 0, 0, canvas.width, canvas.height);
+    const thumb = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+
+    mediaModalThumbAdd.disabled = true;
+    try {
+      const response = await fetch(`/medias/${encodeURIComponent(currentMediaId)}/thumbs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ thumb }),
+      });
+      if (response.ok) await reloadMediaDetails();
+    } finally {
+      mediaModalThumbAdd.disabled = false;
+    }
+  });
+
+  mediaModalThumbs.addEventListener('click', async (e) => {
+    const remove = e.target.closest('.media-modal-thumb-delete');
+    if (!remove || !currentMediaId) return;
+
+    remove.disabled = true;
+    const response = await fetch(`/medias/${encodeURIComponent(currentMediaId)}/thumbs/${remove.dataset.index}`, {
+      method: 'DELETE',
+    });
+    if (response.ok) await reloadMediaDetails();
+    else remove.disabled = false;
+  });
 
   function clearModalDetails() {
     mediaModalDate.textContent = '';
