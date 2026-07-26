@@ -16,6 +16,7 @@ initMediaList({
 initThumbnailCarousel();
 
 initMediaModal({
+  mediaList: document.getElementById('media-list'),
   mediaModal: document.getElementById('media-modal'),
   mediaModalClose: document.getElementById('media-modal-close'),
   mediaPlayer: document.getElementById('media-player'),

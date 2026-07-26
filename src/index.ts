@@ -122,13 +122,13 @@ function escapeHtml(value: string | number) {
   })[char]!)
 }
 
-// encodeURI が素通しする文字のうち、この2つは埋め込み先を壊すのでエスケープする。
-//   # : ブラウザがフラグメント扱いしてURLが途中で切れる
-//   ' : onclick="playVideo('...')" のJS文字列が閉じてしまう
-// 残りは encodeURI のままにする（サーバー側が decodeURI で戻すため）。
-// %27 は decodeURI が ' に戻すが、%23 は予約文字なので戻らず serveStatic 側で戻している。
+// encodeURI は # を素通しするが、それだとブラウザがフラグメント扱いしてURLが
+// 途中で切れるため %23 にする。予約文字なので decodeURI では戻らず、
+// serveStatic の rewriteRequestPath で戻している。
+// 残りは encodeURI のままにし、HTML属性に埋める側で escapeHtml をかける
+// （& などが実体参照として解釈されるのを防ぐため）。
 function videoUrl(title: string) {
-  return `/videos/${encodeURI(title).replace(/#/g, "%23").replace(/'/g, "%27")}`
+  return `/videos/${encodeURI(title).replace(/#/g, "%23")}`
 }
 
 function formatDuration(seconds: number): string {
@@ -251,8 +251,7 @@ app.get("/medias/:id", (c) => {
       data-play-count="${mediaItem.playCount}"
       data-rate="${mediaItem.rate}"
       data-title="${escapedTitle}"
-      data-url="${videoUrl(mediaItem.title)}"
-      onclick="playVideo('${videoUrl(mediaItem.title)}', this)"
+      data-url="${escapeHtml(videoUrl(mediaItem.title))}"
     >
       <div class="media-item-thumb">
         ${mediaItem.type === 'video' || mediaItem.type === 'book' ? `
@@ -273,12 +272,12 @@ app.get("/medias/:id", (c) => {
               loop
               playsinline
               preload="none"
-              data-src="${videoUrl(mediaItem.title)}"
+              data-src="${escapeHtml(videoUrl(mediaItem.title))}"
             ></video>
             <span class="media-item-thumb-duration">${mediaDurationText}</span>
           ` : ''}
         ` : `
-          <img src="${videoUrl(mediaItem.title)}" alt="${escapedTitle}" class="media-item-thumb-image">
+          <img src="${escapeHtml(videoUrl(mediaItem.title))}" alt="${escapedTitle}" class="media-item-thumb-image">
         `}
       </div>
       <p class="media-item-title">${escapedTitle}</p>

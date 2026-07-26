@@ -1,6 +1,7 @@
 import { renderIcons } from './icons.js';
 
 export function initMediaModal({
+  mediaList,
   mediaModal,
   mediaModalClose,
   mediaPlayer,
@@ -16,7 +17,7 @@ export function initMediaModal({
   mediaModalThumbAdd,
   mediaModalPlayLocal,
 }) {
-  if (!mediaModal || !mediaModalClose || !mediaPlayer || !playerPrev || !playerNext || !mediaModalDate || !mediaModalTitle || !mediaModalDuration || !mediaModalRate || !mediaModalThumbs || !mediaModalThumbAdd || !mediaModalPlayLocal) {
+  if (!mediaList || !mediaModal || !mediaModalClose || !mediaPlayer || !playerPrev || !playerNext || !mediaModalDate || !mediaModalTitle || !mediaModalDuration || !mediaModalRate || !mediaModalThumbs || !mediaModalThumbAdd || !mediaModalPlayLocal) {
     return;
   }
 
@@ -259,7 +260,11 @@ export function initMediaModal({
     updateNavButtons();
   }
 
-  window.playVideo = playVideo;
+  // カードは遅延読み込みで何度も作り直されるので、一覧側で受けて委譲する
+  mediaList.addEventListener('click', (e) => {
+    const source = e.target.closest('[data-url]');
+    if (source) playVideo(source.dataset.url, source);
+  });
 
   // ===== 一覧の並び順で前後に移動する =====
   function siblingOf(container, step) {
