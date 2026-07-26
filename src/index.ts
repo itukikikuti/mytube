@@ -14,6 +14,7 @@ const mediaItemRowSchema = z.object({
   type: z.string(),
   duration: z.number(),
   rate: z.number(),
+  file_size: z.number(),
   playCount: z.number(),
   thumbs: z.string().transform((json) => JSON.parse(json)).pipe(z.array(z.string())),
 })
@@ -83,7 +84,30 @@ function importNewMedias() {
   }
 }
 
+// file_size カラム追加より前に取り込んだ分を埋める
+function backfillFileSizes() {
+  const rows = db.prepare("SELECT id, title FROM media_items WHERE file_size = 0").all() as { id: number, title: string }[]
+  if (!rows.length) return
+
+  const update = db.prepare("UPDATE media_items SET file_size = ? WHERE id = ?")
+  let filled = 0
+
+  for (const row of rows) {
+    try {
+      const stats = statSync(`videos/${row.title}`)
+      if (!stats.isFile()) continue
+      update.run(stats.size, row.id)
+      filled++
+    } catch {
+      // ファイルが消えている場合は 0 のままにする
+    }
+  }
+
+  console.log(`Backfilled file_size for ${filled} medias`)
+}
+
 importNewMedias()
+backfillFileSizes()
 setInterval(importNewMedias, 60_000)
 
 function escapeHtml(value: string | number) {
@@ -103,6 +127,25 @@ function formatDuration(seconds: number): string {
   const s = total % 60
   const mm = h > 0 ? String(m).padStart(2, "0") : String(m)
   return (h > 0 ? `${h}:` : "") + `${mm}:${String(s).padStart(2, "0")}`
+}
+
+const FILE_SIZE_UNITS = ["B", "KB", "MB", "GB", "TB"]
+
+function formatFileSize(bytes: number): string {
+  if (bytes <= 0) return ""
+
+  let value = bytes
+  let unit = 0
+  while (value >= 1024 && unit < FILE_SIZE_UNITS.length - 1) {
+    value /= 1024
+    unit++
+  }
+
+  // 幅を抑えるため、10未満のときだけ小数第1位まで出す
+  const text = unit === 0 || value >= 10
+    ? String(Math.round(value))
+    : value.toFixed(1).replace(/\.0$/, "")
+  return `${text}${FILE_SIZE_UNITS[unit]}`
 }
 
 const app = new Hono()
@@ -175,6 +218,7 @@ app.get("/medias/:id", (c) => {
   const mediaDateText = mediaDate.toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" })
   const mediaDateTimeText = mediaDate.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
   const mediaDurationText = escapeHtml(formatDuration(mediaItem.duration))
+  const mediaFileSizeText = escapeHtml(formatFileSize(mediaItem.file_size))
 
   return c.html(`
     <div
@@ -215,7 +259,7 @@ app.get("/medias/:id", (c) => {
       </div>
       <p class="media-item-title">${escapedTitle}</p>
       <div class="media-item-meta">
-        <span>${mediaItem.playCount}回・${escapeHtml(mediaDateText)}</span>
+        <span>${mediaItem.playCount}回・${escapeHtml(mediaDateText)}${mediaFileSizeText ? `・${mediaFileSizeText}` : ''}</span>
         <span class="media-item-rate">
           <span class="media-item-rate-long">${'♥'.repeat(mediaItem.rate)}<span class="media-item-rate-off">${'♥'.repeat(5 - mediaItem.rate)}</span></span>
           <span class="media-item-rate-short">♥${mediaItem.rate}</span>
