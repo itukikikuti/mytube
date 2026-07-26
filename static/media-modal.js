@@ -82,11 +82,6 @@ export function initMediaModal({
     showControls(false);
   });
 
-  mediaPlayer.addEventListener('ended', () => {
-    playerPlayBtn.dataset.state = 'paused';
-    showControls(false);
-  });
-
   mediaPlayer.addEventListener('emptied', () => {
     playerPlayBtn.dataset.state = 'paused';
     playerSeekbar.value = 0;
