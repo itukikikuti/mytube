@@ -172,8 +172,8 @@ app.get("/medias/:id", (c) => {
   const mediaItem = mediaItemRowSchema.parse(row)
   const escapedTitle = escapeHtml(mediaItem.title)
   const mediaDate = new Date(mediaItem.date * 1000)
-  const mediaDateText = mediaDate.toLocaleDateString()
-  const mediaDateTimeText = mediaDate.toLocaleString()
+  const mediaDateText = mediaDate.toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" })
+  const mediaDateTimeText = mediaDate.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
   const mediaDurationText = escapeHtml(formatDuration(mediaItem.duration))
 
   return c.html(`
