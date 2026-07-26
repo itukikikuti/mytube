@@ -334,6 +334,8 @@ export function initMediaModal({
   });
 
   playerWrapper.addEventListener('wheel', (e) => {
+    // PDFはページ画像を縦スクロールして読むので、動画以外では妨げない
+    if (currentMode !== 'video') return;
     e.preventDefault();
     if (!mediaPlayer.duration) return;
     const delta = e.deltaY < 0 ? 5 : -5;
@@ -352,6 +354,7 @@ export function initMediaModal({
     isSeeking = false;
   }, { passive: true });
   playerWrapper.addEventListener('touchmove', (e) => {
+    if (currentMode !== 'video') return;
     if (touchStartX === null || !mediaPlayer.duration) return;
     const deltaX = e.touches[0].clientX - touchStartX;
     const deltaY = e.touches[0].clientY - touchStartY;
