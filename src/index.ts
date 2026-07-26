@@ -122,10 +122,13 @@ function escapeHtml(value: string | number) {
   })[char]!)
 }
 
-// # を素のまま出すとブラウザがフラグメント扱いしてURLが途中で切れるため %23 にする。
-// 他の文字は encodeURI のままにする（サーバー側が decodeURI で戻すため）。
+// encodeURI が素通しする文字のうち、この2つは埋め込み先を壊すのでエスケープする。
+//   # : ブラウザがフラグメント扱いしてURLが途中で切れる
+//   ' : onclick="playVideo('...')" のJS文字列が閉じてしまう
+// 残りは encodeURI のままにする（サーバー側が decodeURI で戻すため）。
+// %27 は decodeURI が ' に戻すが、%23 は予約文字なので戻らず serveStatic 側で戻している。
 function videoUrl(title: string) {
-  return `/videos/${encodeURI(title).replace(/#/g, "%23")}`
+  return `/videos/${encodeURI(title).replace(/#/g, "%23").replace(/'/g, "%27")}`
 }
 
 function formatDuration(seconds: number): string {
