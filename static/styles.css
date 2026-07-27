@@ -769,8 +769,27 @@ body:has(#media-modal[open]) {
 }
 
 #media-modal-rate {
+  display: flex;
   color: var(--accent);
   letter-spacing: 1px;
+}
+
+.media-modal-rate-star {
+  padding: 0 1px;
+  border: 0;
+  background: none;
+  font: inherit;
+  line-height: 1;
+  color: gray;
+  cursor: pointer;
+}
+
+.media-modal-rate-star.is-on {
+  color: var(--accent);
+}
+
+.media-modal-rate-star:hover {
+  transform: scale(1.2);
 }
 
 #media-modal-thumbs {

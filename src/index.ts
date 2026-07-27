@@ -385,6 +385,20 @@ app.get("/medias/:id/pages/:page", async (c) => {
   }
 })
 
+app.put("/medias/:id/rate", async (c) => {
+  const { rate } = await c.req.json()
+  if (!Number.isInteger(rate) || rate < 0 || rate > 5) {
+    return c.text("invalid rate", 400)
+  }
+
+  const result = db.prepare("UPDATE media_items SET rate = ? WHERE id = ?").run(rate, c.req.param("id"))
+  if (!result.changes) {
+    return c.notFound()
+  }
+
+  return c.body(null, 204)
+})
+
 app.post("/medias/:id/thumbs", async (c) => {
   const { thumb } = await c.req.json()
   if (typeof thumb !== "string" || !thumb || thumb.length > MAX_THUMB_LENGTH || !/^[A-Za-z0-9+/]+={0,2}$/.test(thumb)) {

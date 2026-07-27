@@ -147,6 +147,7 @@ export function initMediaModal({
     }
   });
   let currentMediaId = null;
+  let currentRate = 0;
 
   function setModalDetails(sourceElement) {
     const rate = Math.max(0, Math.min(5, Number(sourceElement.dataset.rate) || 0));
@@ -157,7 +158,17 @@ export function initMediaModal({
     mediaModalDuration.textContent = sourceElement.dataset.duration || '';
     mediaModalSize.textContent = sourceElement.dataset.size || '';
     mediaModalPlayCount.textContent = `${Number(sourceElement.dataset.playCount) || 0}回`;
-    mediaModalRate.innerHTML = `${'♥'.repeat(rate)}<span style="color: gray">${'♥'.repeat(5 - rate)}</span>`;
+    currentRate = rate;
+    mediaModalRate.replaceChildren(...Array.from({ length: 5 }, (_, i) => {
+      const star = document.createElement('button');
+      star.type = 'button';
+      star.className = 'media-modal-rate-star';
+      star.classList.toggle('is-on', i < rate);
+      star.dataset.value = String(i + 1);
+      star.setAttribute('aria-label', `評価を${i + 1}にする`);
+      star.textContent = '♥';
+      return star;
+    }));
 
     mediaModalThumbAdd.hidden = mode !== 'video';
 
@@ -220,6 +231,22 @@ export function initMediaModal({
     }
   });
 
+  mediaModalRate.addEventListener('click', async (e) => {
+    const star = e.target.closest('.media-modal-rate-star');
+    if (!star || !currentMediaId) return;
+
+    // 同じ位置をもう一度押したら解除する
+    const value = Number(star.dataset.value);
+    const rate = value === currentRate ? 0 : value;
+
+    const response = await fetch(`/medias/${encodeURIComponent(currentMediaId)}/rate`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rate }),
+    });
+    if (response.ok) await reloadMediaDetails();
+  });
+
   mediaModalThumbs.addEventListener('click', async (e) => {
     const remove = e.target.closest('.media-modal-thumb-delete');
     if (!remove || !currentMediaId) return;
@@ -238,8 +265,9 @@ export function initMediaModal({
     mediaModalDuration.textContent = '';
     mediaModalSize.textContent = '';
     mediaModalPlayCount.textContent = '';
-    mediaModalRate.textContent = '';
+    mediaModalRate.replaceChildren();
     mediaModalThumbs.replaceChildren();
+    currentRate = 0;
   }
 
   // PDFは iframe だとスマホで表示できないので、サーバーが返すページ画像を縦に並べる。
