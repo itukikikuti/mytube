@@ -775,10 +775,11 @@ body:has(#media-modal[open]) {
 }
 
 .media-modal-rate-star {
-  padding: 0 1px;
+  padding: 0 3px;
   border: 0;
   background: none;
   font: inherit;
+  font-size: 24px;
   line-height: 1;
   color: gray;
   cursor: pointer;
