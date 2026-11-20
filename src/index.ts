@@ -1,28 +1,12 @@
 import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { Hono } from 'hono'
-import { z } from 'zod'
-import Database from "better-sqlite3"
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync } from 'node:fs'
-import { extname } from 'node:path'
-import { execFile, execFileSync } from 'node:child_process'
-import { promisify } from 'node:util'
-
-const execFileAsync = promisify(execFile)
-
-const mediaItemRowSchema = z.object({
-  id: z.number(),
-  title: z.string(),
-  date: z.number(),
-  type: z.string(),
-  duration: z.number(),
-  rate: z.number(),
-  file_size: z.number(),
-  playCount: z.number(),
-  thumbs: z.string().transform((json) => JSON.parse(json)).pipe(z.array(z.string())),
-})
-
-const mediaItemIdListSchema = z.array(z.object({ id: z.number() }))
+import { readFileSync } from 'node:fs'
+import { db, mediaItemIdListSchema, mediaItemRowSchema, thumbsListSchema } from './db.js'
+import { importNewMedias } from './import.js'
+import { backupDatabase } from './backup.js'
+import { escapeHtml, formatDuration, formatFileSize, videoUrl } from './format.js'
+import { pdfInfo, renderPage } from './pdf.js'
 
 const ORDER_BY_MAP: Record<string, string> = {
   date_desc:      "date DESC",
@@ -39,183 +23,8 @@ const ORDER_BY_MAP: Record<string, string> = {
   id:             "id ASC",
 }
 
-const db: Database.Database = new Database("data/db.sqlite")
-
-const MEDIA_TYPE_MAP: Record<string, string> = {
-  ".mp4":   "video",
-  ".mkv":   "video",
-  ".pdf":   "book",
-  ".gif":   "anime",
-  ".jpg":   "image",
-  ".png":   "image",
-  ".webp":  "image",
-  ".jfif":  "image",
-  ".jpeg":  "image",
-  ".avif":  "image",
-}
-
-function probeDuration(path: string) {
-  try {
-    const seconds = Number(execFileSync(
-      "ffprobe",
-      ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path],
-      { encoding: "utf8" }
-    ))
-    return Number.isFinite(seconds) ? Math.floor(seconds) : 0
-  } catch {
-    return 0
-  }
-}
-
-function importNewMedias() {
-  const known = new Set(
-    (db.prepare("SELECT title FROM media_items").all() as { title: string }[]).map((row) => row.title)
-  )
-  const insert = db.prepare(`
-    INSERT INTO media_items (title, date, type, duration, rate, tags, thumbs, file_size)
-    VALUES (?, ?, ?, ?, 0, '[]', '[]', ?)
-  `)
-
-  for (const name of readdirSync("videos")) {
-    if (known.has(name)) continue
-    const type = MEDIA_TYPE_MAP[extname(name).toLowerCase()]
-    if (!type) continue
-    const path = `videos/${name}`
-    const stats = statSync(path)
-    if (!stats.isFile()) continue
-    const date = Math.floor(stats.birthtimeMs / 1000)
-    insert.run(name, date, type, type === "video" ? probeDuration(path) : 0, stats.size)
-    console.log(`Imported ${name}`)
-  }
-}
-
 importNewMedias()
 setInterval(importNewMedias, 60_000)
-
-const BACKUP_DIR = "videos/backup"
-
-async function backupDatabase() {
-  try {
-    // NAS 上で SQLite を開くとロックが取れないため、一旦ローカルに書いてからコピーする
-    const tmp = "data/_backup.tmp"
-    await db.backup(tmp)
-    mkdirSync(BACKUP_DIR, { recursive: true })
-    const stamp = new Date().toISOString().replace(/\D/g, "").slice(0, 14)
-    const dest = `${BACKUP_DIR}/db-${stamp}.sqlite`
-    copyFileSync(tmp, `${dest}.tmp`)
-    renameSync(`${dest}.tmp`, dest) // 転送中の不完全なファイルを有効な世代に見せない
-    unlinkSync(tmp)
-
-    // 自分が作った命名のものだけを世代管理の対象にする
-    const olds = readdirSync(BACKUP_DIR).filter((f) => /^db-\d{14}\.sqlite$/.test(f)).sort()
-    for (const f of olds.slice(0, -24)) unlinkSync(`${BACKUP_DIR}/${f}`)
-    console.log(`Backed up database to ${dest}`)
-  } catch (error) {
-    console.error("Backup failed:", error)
-  }
-}
-
-function escapeHtml(value: string | number) {
-  return String(value).replace(/[&<>"']/g, (char) => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  })[char]!)
-}
-
-// encodeURI は # を素通しするが、それだとブラウザがフラグメント扱いしてURLが
-// 途中で切れるため %23 にする。予約文字なので decodeURI では戻らず、
-// serveStatic の rewriteRequestPath で戻している。
-// 残りは encodeURI のままにし、HTML属性に埋める側で escapeHtml をかける
-// （& などが実体参照として解釈されるのを防ぐため）。
-function videoUrl(title: string) {
-  return `/videos/${encodeURI(title).replace(/#/g, "%23")}`
-}
-
-function formatDuration(seconds: number): string {
-  const total = Math.max(0, Math.floor(seconds))
-  const h = Math.floor(total / 3600)
-  const m = Math.floor((total % 3600) / 60)
-  const s = total % 60
-  const mm = h > 0 ? String(m).padStart(2, "0") : String(m)
-  return (h > 0 ? `${h}:` : "") + `${mm}:${String(s).padStart(2, "0")}`
-}
-
-const FILE_SIZE_UNITS = ["B", "KB", "MB", "GB", "TB"]
-
-function formatFileSize(bytes: number, precise = false): string {
-  if (bytes <= 0) return ""
-
-  let value = bytes
-  let unit = 0
-  while (value >= 1024 && unit < FILE_SIZE_UNITS.length - 1) {
-    value /= 1024
-    unit++
-  }
-
-  // モーダルは幅の制約が無いので小数第2位まで出す
-  if (precise && unit > 0) return `${value.toFixed(2)}${FILE_SIZE_UNITS[unit]}`
-
-  // 一覧は幅を抑えるため、10未満のときだけ小数第1位まで出す
-  const text = unit === 0 || value >= 10
-    ? String(Math.round(value))
-    : value.toFixed(1).replace(/\.0$/, "")
-  return `${text}${FILE_SIZE_UNITS[unit]}`
-}
-
-// ===== PDF をページ画像として配信する =====
-// スマホのブラウザは iframe 内のPDFを描画しないうえ、実物は数百MBあって
-// 丸ごと転送できないため、見ているページだけをJPEGにして返す。
-const PAGE_DIR = "data/pages"
-const pdfInfoCache = new Map<string, { pages: number, ratio: number }>()
-const pageRenders = new Map<string, Promise<string>>()
-
-function pdfInfo(id: string, title: string) {
-  const cached = pdfInfoCache.get(id)
-  if (cached) return cached
-
-  let info = { pages: 0, ratio: 0.7 }
-  try {
-    const out = execFileSync("pdfinfo", [`videos/${title}`], { encoding: "utf8" })
-    const size = out.match(/^Page size:\s+([\d.]+) x ([\d.]+)/m)
-    info = {
-      pages: Number(out.match(/^Pages:\s+(\d+)/m)?.[1] ?? 0),
-      ratio: size ? Number(size[1]) / Number(size[2]) : 0.7,
-    }
-  } catch {
-    // 壊れている場合はページ0件として扱う
-  }
-
-  pdfInfoCache.set(id, info)
-  return info
-}
-
-function renderPage(id: string, title: string, page: number) {
-  const file = `${PAGE_DIR}/${id}/${page}.jpg`
-  if (existsSync(file)) return Promise.resolve(file)
-
-  // 連続でめくられたときに同じページを何度も変換しない
-  const key = `${id}/${page}`
-  const running = pageRenders.get(key)
-  if (running) return running
-
-  const task = (async () => {
-    mkdirSync(`${PAGE_DIR}/${id}`, { recursive: true })
-    // -singlefile なので出力は <prefix>.jpg になる
-    await execFileAsync("pdftoppm", [
-      "-jpeg", "-jpegopt", "quality=80",
-      "-scale-to-x", "1200", "-scale-to-y", "-1",
-      "-f", String(page), "-l", String(page), "-singlefile",
-      `videos/${title}`, `${PAGE_DIR}/${id}/${page}`,
-    ])
-    return file
-  })().finally(() => pageRenders.delete(key))
-
-  pageRenders.set(key, task)
-  return task
-}
 
 const app = new Hono()
 
@@ -354,7 +163,7 @@ const MAX_THUMB_LENGTH = 1_000_000
 
 function readThumbs(id: string) {
   const row = db.prepare("SELECT thumbs FROM media_items WHERE id = ?").get(id) as { thumbs: string } | undefined
-  return row ? z.array(z.string()).parse(JSON.parse(row.thumbs)) : null
+  return row ? thumbsListSchema.parse(JSON.parse(row.thumbs)) : null
 }
 
 function writeThumbs(id: string, thumbs: string[]) {
