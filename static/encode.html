@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>エンコード - MyTube</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap">
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="/static/encode.css">
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script defer src="https://unpkg.com/lucide@0.468.0"></script>
+  </head>
+  <body>
+    <dialog id="encode-modal">
+      <button id="encode-modal-close" type="button" aria-label="閉じる"><i data-lucide="x"></i></button>
+      <div id="encode-modal-body">
+        <div id="compare-player" class="compare-player" data-mode="flicker" tabindex="0">
+          <div class="compare-stage">
+            <div class="compare-pane compare-pane-encoded">
+              <video class="compare-video-encoded" playsinline preload="auto"></video>
+              <span class="compare-label">◀ 変換後</span>
+            </div>
+            <div class="compare-pane compare-pane-original">
+              <video class="compare-video-original" muted playsinline preload="auto"></video>
+              <span class="compare-label">元動画 ▶</span>
+            </div>
+            <p class="compare-message" hidden></p>
+          </div>
+          <div class="compare-controls">
+            <div class="compare-controls-bar">
+              <button class="compare-play-btn compare-icon-btn" type="button" aria-label="再生/停止" data-state="paused">
+                <i data-lucide="play" class="icon-play"></i>
+                <i data-lucide="pause" class="icon-pause"></i>
+              </button>
+              <button class="compare-icon-btn" type="button" data-compare-step="-1" aria-label="1コマ戻す"><i data-lucide="step-back"></i></button>
+              <button class="compare-icon-btn" type="button" data-compare-step="1" aria-label="1コマ進める"><i data-lucide="step-forward"></i></button>
+              <span class="compare-time">0:00 / 0:00</span>
+              <input class="compare-seekbar" type="range" min="0" max="1000" step="1" value="0">
+              <span class="compare-side"></span>
+              <button class="compare-icon-btn compare-fullscreen-btn" type="button" aria-label="フルスクリーン"><i data-lucide="maximize"></i></button>
+            </div>
+            <div class="compare-modes">
+              <button type="button" data-compare-mode="flicker">フリッカー</button>
+              <button type="button" data-compare-mode="side">2窓</button>
+            </div>
+          </div>
+        </div>
+        <aside id="encode-modal-sidebar"></aside>
+      </div>
+    </dialog>
+
+    <header id="encode-header">
+      <div id="encode-header-bar">
+        <h1>エンコード</h1>
+        <a href="/" id="encode-back"><i data-lucide="arrow-left"></i>一覧へ</a>
+      </div>
+      <div id="encode-summary"></div>
+    </header>
+
+    <div id="encode-list" hx-get="/encode/list" hx-trigger="load"></div>
+
+    <script type="module" src="/static/encode.js"></script>
+  </body>
+</html>

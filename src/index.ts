@@ -3,6 +3,7 @@ import { serveStatic } from '@hono/node-server/serve-static'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import Database from "better-sqlite3"
+import { encodeApp } from "./encode/routes.js"
 
 const mediaItemRowSchema = z.object({
   id: z.number(),
@@ -55,10 +56,11 @@ const app = new Hono()
 
 app.use('/static/*', serveStatic({ root: './' }))
 app.use('/videos/*', serveStatic({ root: './' }))
-// 2窓比較再生用（一時機能）: 変換前の元動画を配信
-app.use('/original/*', serveStatic({ root: './' }))
 
 app.get('/', serveStatic({ path: './static/index.html' }))
+
+// エンコード確認画面 (src/encode)
+app.route("/encode", encodeApp)
 
 app.get("/medias", (c) => {
   const sort = c.req.query("sort") ?? ""

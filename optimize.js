@@ -1,4 +1,4 @@
-// upload フォルダの動画を最適化して videos フォルダに出力するスクリプト
+// upload フォルダの動画を最適化して encoded フォルダに出力するスクリプト (結果は /encode で確認)
 // 実行方法: node optimize.js (ffmpeg 本体は ffmpeg-static に同梱されるためインストール不要)
 
 import { spawnSync } from "node:child_process"
@@ -43,7 +43,7 @@ function videoArgs(crf) {
 
 const root = import.meta.dirname
 const uploadDir = path.join(root, "upload")
-const videosDir = path.join(root, "videos")
+const videosDir = path.join(root, "encoded")
 const videoExts = new Set([".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v", ".wmv", ".flv", ".ts"])
 
 // fs.rmSync は絵文字入りファイル名で Node がクラッシュすることがあるため unlinkSync を使う
@@ -239,7 +239,7 @@ for (const name of files) {
   console.log(`[${index}/${files.length}] ${name} (${formatSize(origSize)})`)
 
   if (fs.existsSync(dest)) {
-    console.log("  スキップ: videos に同名ファイルが既にあります")
+    console.log("  スキップ: encoded に同名ファイルが既にあります")
     console.log()
     continue
   }
@@ -315,5 +315,5 @@ for (const name of files) {
 if (totalOrig > 0) {
   const saved = ((1 - totalNew / totalOrig) * 100).toFixed(0)
   console.log(`合計: ${formatSize(totalOrig)} → ${formatSize(totalNew)} (${saved}% 削減)`)
-  console.log("元ファイルは upload フォルダに残っています。videos 内のファイルを確認してから削除してください。")
+  console.log("元ファイルは upload フォルダに残っています。encoded 内のファイルは /encode で確認できます。")
 }
