@@ -201,9 +201,8 @@ function metricRows(job: Job): string {
 }
 
 function settingsSummary(s: EncodeSettings): string {
-  const measure = s.measureSubsample > 1 ? `、全編測定 ${s.measureSubsample}フレームに1回` : ""
   if (s.method === "quick") {
-    return `速い方式 (1本1 CRF): サンプル ${s.sampleSeconds}秒の VMAF (${s.probingStat}) ≥ ${s.targetQuality}、SVT-AV1 preset ${s.preset}、CRF ${s.crfMin}〜${s.crfMax}、探索 最大${s.probes} 回、10bit、Opus ${s.audioBitrate}k${s.svtParams ? `、追加 ${s.svtParams}` : ""}${measure}`
+    return `速い方式 (1本1 CRF): サンプル ${s.sampleSeconds}秒の VMAF (${s.probingStat}) ≥ ${s.targetQuality}、SVT-AV1 preset ${s.preset}、CRF ${s.crfMin}〜${s.crfMax}、探索 最大${s.probes} 回、10bit、Opus ${s.audioBitrate}k${s.svtParams ? `、追加 ${s.svtParams}` : ""}`
   }
   if (s.method === "single-crf") {
     return `7月方式 (1本1 CRF): サンプル VMAF 平均 ≥ ${s.targetQuality}、SVT-AV1 preset ${s.preset} (探索 ${s.probePreset})、CRF ${s.crfMin}〜${s.crfMax}、10bit、Opus ${s.audioBitrate}k`
@@ -258,9 +257,6 @@ const SETTING_FIELDS: { key: keyof EncodeSettings; label: string; hint: string; 
   { key: "svtParams", label: "SVT-AV1 追加パラメータ", hint: "例: --tune 0 --enable-variance-boost 1" },
   { key: "audioBitrate", label: "音声 Opus kbps", hint: "" },
   { key: "keepRatio", label: "元を採用する大きさ", hint: "結果が元のこの倍率以上なら「縮まない」として元を採用 (0.95 = 5% 未満しか減らない)" },
-  { key: "acceptVmafMean", label: "合格ライン: VMAF 平均", hint: "全編測定の平均がこれ未満なら元を採用" },
-  { key: "acceptVmafLow", label: "合格ライン: VMAF 下位1%", hint: "全編測定の下位1%がこれ未満なら元を採用" },
-  { key: "measureSubsample", label: "全編測定の間引き", hint: "何フレームに1回 VMAF を測るか。1 = 全フレーム (XPSNR も測る、時間は約3倍)" },
 ]
 
 function settingsForm(settings: EncodeSettings, message = "") {

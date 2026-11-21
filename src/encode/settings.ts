@@ -30,11 +30,6 @@ export const encodeSettingsSchema = z.object({
   audioBitrate: z.coerce.number().int().min(32).max(512).default(128),
   // 結果が元の何倍以上なら「縮まない」として元を採用するか
   keepRatio: z.coerce.number().min(0.3).max(1).default(0.95),
-  // 全編の画質測定 (VMAF) の合格ライン。平均・下位1% のどちらかが下回ったら元を採用
-  acceptVmafMean: z.coerce.number().min(0).max(100).default(93),
-  acceptVmafLow: z.coerce.number().min(0).max(100).default(80),
-  // 全編の画質測定で何フレームに1回測るか (1 = 全フレーム + XPSNR。3 なら測定時間は約 1/3)
-  measureSubsample: z.coerce.number().int().min(1).max(30).default(3),
 })
 
 export type EncodeSettings = z.infer<typeof encodeSettingsSchema>
