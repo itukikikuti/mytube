@@ -7,6 +7,7 @@ import { importNewMedias } from './import.js'
 import { backupDatabase } from './backup.js'
 import { escapeHtml, formatDuration, formatFileSize, videoUrl } from './format.js'
 import { pdfInfo, renderPage } from './pdf.js'
+import { encodeApp } from "./encode/routes.js"
 
 const ORDER_BY_MAP: Record<string, string> = {
   date_desc:      "date DESC",
@@ -39,6 +40,9 @@ app.use('/videos/*', serveStatic({
 }))
 
 app.get('/', serveStatic({ path: './static/index.html' }))
+
+// エンコード確認画面 (src/encode)
+app.route("/encode", encodeApp)
 
 app.get("/medias", (c) => {
   const sort = c.req.query("sort") ?? ""

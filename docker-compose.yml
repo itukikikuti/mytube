@@ -9,6 +9,23 @@ services:
     volumes:
       - ./data:/app/data
       - nasvideos:/app/videos
+      # エンコード確認画面 (/encode) 用。Web からは読むだけ
+      - ./upload:/app/upload:ro
+      - ./encoded:/app/encoded:ro
+    restart: unless-stopped
+
+  # エンコード用ワーカー (upload の動画を AV1 にして encoded に出す。1本ずつ・低優先度)
+  encoder:
+    build:
+      context: .
+      dockerfile: Dockerfile.encoder
+    init: true
+    environment:
+      - TZ=Asia/Tokyo
+    volumes:
+      - ./data:/app/data
+      - ./upload:/app/upload:ro
+      - ./encoded:/app/encoded
     restart: unless-stopped
 
 volumes:
