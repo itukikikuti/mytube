@@ -1,6 +1,7 @@
 // エンコード前後の見比べプレイヤー
 // - フリッカーテスト: 動画の上でポインタを動かす/ドラッグすると、中央より左なら変換後、右なら元動画に瞬時に切り替わる
 //   (マウスのホバー・ドラッグ、Android のタッチ(指でドラッグ)の両方に対応)
+// - スライダー: 動画の上をドラッグすると、境目より左が元動画・右が変換後になり、境目をドラッグで動かせる
 // - 2窓: 変換後と元動画を横に並べて再生
 // どちらのモードでも 2つの動画は再生位置・一時停止・シークを常に同期させる (変換後側が主、元動画側が従)
 export function initComparePlayer(root) {
@@ -15,6 +16,8 @@ export function initComparePlayer(root) {
   const modeButtons = root.querySelectorAll('[data-compare-mode]');
   const stepButtons = root.querySelectorAll('[data-compare-step]');
   const message = root.querySelector('.compare-message');
+  const encodedLabel = root.querySelector('.compare-pane-encoded .compare-label');
+  const originalLabel = root.querySelector('.compare-pane-original .compare-label');
 
   let fps = 30;
   let showingOriginal = false;
@@ -22,6 +25,9 @@ export function initComparePlayer(root) {
   function setMode(mode) {
     root.dataset.mode = mode;
     modeButtons.forEach((btn) => btn.classList.toggle('is-active', btn.dataset.compareMode === mode));
+    // スライダーは元動画が左・変換後が右なので矢印の向きを変える
+    encodedLabel.textContent = mode === 'slider' ? '変換後 ▶' : '◀ 変換後';
+    originalLabel.textContent = mode === 'slider' ? '◀ 元動画' : '元動画 ▶';
     updateSideDisplay();
   }
 
@@ -34,7 +40,10 @@ export function initComparePlayer(root) {
 
   function updateSideDisplay() {
     if (!sideDisplay) return;
-    sideDisplay.textContent = root.dataset.mode === 'flicker' ? (showingOriginal ? '元動画' : '変換後') : '';
+    const mode = root.dataset.mode;
+    if (mode === 'flicker') sideDisplay.textContent = showingOriginal ? '元動画' : '変換後';
+    else if (mode === 'slider') sideDisplay.textContent = '左: 元動画 / 右: 変換後';
+    else sideDisplay.textContent = '';
   }
 
   function showMessage(text) {
@@ -50,6 +59,13 @@ export function initComparePlayer(root) {
     setShowOriginal(clientX - rect.left > rect.width / 2);
   }
 
+  // ===== スライダー: ドラッグで境目を動かす =====
+  function setSplitFromPointer(clientX) {
+    const rect = stage.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    stage.style.setProperty('--split', `${ratio * 100}%`);
+  }
+
   let downX = null;
   let downY = null;
   let dragged = false;
@@ -59,12 +75,14 @@ export function initComparePlayer(root) {
     downY = e.clientY;
     dragged = false;
     updateSideFromPointer(e.clientX);
-    // 指が動画の外に出ても切り替えを続けられるようにする
-    if (e.pointerType !== 'mouse') stage.setPointerCapture?.(e.pointerId);
+    // 指が動画の外に出ても切り替えを続けられるようにする (スライダーはマウスでも外に出て動かせるように)
+    if (e.pointerType !== 'mouse' || root.dataset.mode === 'slider') stage.setPointerCapture?.(e.pointerId);
   });
   stage.addEventListener('pointermove', (e) => {
     if (downX !== null && (Math.abs(e.clientX - downX) > 10 || Math.abs(e.clientY - downY) > 10)) dragged = true;
     updateSideFromPointer(e.clientX);
+    // スライダーはドラッグ中だけ境目を動かす (クリックだけなら再生/停止)
+    if (root.dataset.mode === 'slider' && downX !== null && dragged) setSplitFromPointer(e.clientX);
   });
   const endPointer = () => {
     downX = null;

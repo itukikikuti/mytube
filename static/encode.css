@@ -437,6 +437,62 @@ body:has(#encode-modal[open]) {
   outline: 2px solid #fff;
 }
 
+/* スライダー: 2つの動画を重ね、元動画を境目 (--split) より左だけ切り抜いて見せる */
+.compare-stage {
+  --split: 50%;
+}
+
+.compare-player[data-mode="slider"] .compare-stage {
+  touch-action: none;
+  cursor: ew-resize;
+}
+
+.compare-player[data-mode="slider"] .compare-pane-original {
+  z-index: 1;
+  clip-path: inset(0 calc(100% - var(--split)) 0 0);
+}
+
+.compare-player[data-mode="slider"] .compare-pane-original .compare-label {
+  left: 10px;
+  right: auto;
+}
+
+.compare-player[data-mode="slider"] .compare-pane-encoded .compare-label {
+  left: auto;
+  right: 10px;
+}
+
+.compare-divider {
+  display: none;
+}
+
+.compare-player[data-mode="slider"] .compare-divider {
+  display: block;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--split);
+  z-index: 1;
+  width: 2px;
+  margin-left: -1px;
+  background: #fff;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+
+.compare-player[data-mode="slider"] .compare-divider::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 28px;
+  height: 28px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.4);
+  transform: translate(-50%, -50%);
+}
+
 /* 2窓: 横に並べる */
 .compare-player[data-mode="side"] .compare-stage {
   display: flex;
