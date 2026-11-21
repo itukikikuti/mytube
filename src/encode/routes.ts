@@ -201,6 +201,10 @@ function metricRows(job: Job): string {
 }
 
 function settingsSummary(s: EncodeSettings): string {
+  const measure = s.measureSubsample > 1 ? `、全編測定 ${s.measureSubsample}フレームに1回` : ""
+  if (s.method === "quick") {
+    return `速い方式 (1本1 CRF): サンプル ${s.sampleSeconds}秒の VMAF (${s.probingStat}) ≥ ${s.targetQuality}、SVT-AV1 preset ${s.preset}、CRF ${s.crfMin}〜${s.crfMax}、探索 最大${s.probes} 回、10bit、Opus ${s.audioBitrate}k${s.svtParams ? `、追加 ${s.svtParams}` : ""}${measure}`
+  }
   if (s.method === "single-crf") {
     return `7月方式 (1本1 CRF): サンプル VMAF 平均 ≥ ${s.targetQuality}、SVT-AV1 preset ${s.preset} (探索 ${s.probePreset})、CRF ${s.crfMin}〜${s.crfMax}、10bit、Opus ${s.audioBitrate}k`
   }
@@ -239,22 +243,24 @@ encodeApp.get("/jobs/:id{[0-9]+}", (c) => {
 
 // ===== 設定 =====
 const SETTING_FIELDS: { key: keyof EncodeSettings; label: string; hint: string; options?: [string, string][] }[] = [
-  { key: "method", label: "方式", hint: "Av1an はシーンごとに目標画質ぎりぎりの CRF を探す。7月方式は1本を1つの CRF で", options: [["av1an", "Av1an (シーンごと)"], ["single-crf", "7月方式 (1本1 CRF)"]] },
+  { key: "method", label: "方式", hint: "速い方式は全体から集めた短いサンプルで CRF を決める (N100 で動画1分あたり数分)。Av1an はシーンごとに探す (1分あたり15〜30分)", options: [["quick", "速い方式 (サンプルで1本1 CRF)"], ["av1an", "Av1an (シーンごと・遅い)"], ["single-crf", "7月方式 (1本1 CRF)"]] },
   { key: "targetMetric", label: "目標の指標 (Av1an)", hint: "VMAF は 0〜100、XPSNR は dB (40 前後)", options: [["vmaf", "VMAF"], ["xpsnr-weighted", "XPSNR (重み付き)"]] },
-  { key: "targetQuality", label: "目標値", hint: "VMAF 95 前後 = 劣化がほぼ分からない (安全側)" },
+  { key: "targetQuality", label: "目標値", hint: "VMAF。上げると画質優先 (サイズは大きく)、下げるとサイズ優先。劣化が見えたら上げる" },
   { key: "targetTolerance", label: "許容幅", hint: "目標値〜目標値+許容幅 に収まる CRF を探す" },
-  { key: "probingStat", label: "シーン内の判定方法", hint: "percentile=5 = 悪い方から5%のフレームで判定。mean = 平均" },
-  { key: "preset", label: "SVT-AV1 プリセット", hint: "小さいほど遅く高圧縮 (2〜4 推奨)" },
+  { key: "probingStat", label: "サンプル・シーン内の判定方法", hint: "mean = 平均。percentile=5 = 悪い方から5%のフレームで判定 (厳しい)" },
+  { key: "preset", label: "SVT-AV1 プリセット", hint: "小さいほど遅く高圧縮。速い方式: 6 (8 にすると約2倍速いが同じ画質で1割ほど大きい)" },
   { key: "probePreset", label: "探索用プリセット", hint: "探索の試しエンコード用。速いほど探索は早いが目安は粗くなる" },
   { key: "crfMin", label: "CRF 下限", hint: "" },
   { key: "crfMax", label: "CRF 上限", hint: "" },
-  { key: "probes", label: "探索回数 (シーンごと)", hint: "" },
+  { key: "probes", label: "探索回数", hint: "速い方式は最大回数 (多くは3回で決まる)。Av1an はシーンごと" },
+  { key: "sampleSeconds", label: "サンプルの長さ (秒・速い方式)", hint: "全体から1秒ずつ均等に集める。長いほど CRF の見積もりは正確だが探索に時間がかかる" },
   { key: "workers", label: "並列シーン数", hint: "1 本あたりメモリ約 1.5GB (1080p)" },
   { key: "svtParams", label: "SVT-AV1 追加パラメータ", hint: "例: --tune 0 --enable-variance-boost 1" },
   { key: "audioBitrate", label: "音声 Opus kbps", hint: "" },
   { key: "keepRatio", label: "元を採用する大きさ", hint: "結果が元のこの倍率以上なら「縮まない」として元を採用 (0.95 = 5% 未満しか減らない)" },
   { key: "acceptVmafMean", label: "合格ライン: VMAF 平均", hint: "全編測定の平均がこれ未満なら元を採用" },
   { key: "acceptVmafLow", label: "合格ライン: VMAF 下位1%", hint: "全編測定の下位1%がこれ未満なら元を採用" },
+  { key: "measureSubsample", label: "全編測定の間引き", hint: "何フレームに1回 VMAF を測るか。1 = 全フレーム (XPSNR も測る、時間は約3倍)" },
 ]
 
 function settingsForm(settings: EncodeSettings, message = "") {

@@ -28,6 +28,9 @@ export function encodedName(name: string): string {
   return path.posix.join(parsed.dir, `${parsed.name}.mp4`)
 }
 
+// 探索の段階で「目標画質を満たすと元より小さくならない」と分かったとき (本番のエンコードを省いて元を採用する)
+class NotSmallerError extends Error {}
+
 function removeQuietly(target: string) {
   try {
     fs.rmSync(target, { recursive: true, force: true })
@@ -102,13 +105,22 @@ export async function runPipeline(job: Job, settings: EncodeSettings, ctx: JobCo
   const videoProgress = (frac: number, label: string) =>
     ctx.progress(label, WEIGHTS.check + WEIGHTS.audio + WEIGHTS.video * Math.min(1, frac))
   try {
-    if (settings.method === "av1an") {
+    if (settings.method === "quick") {
+      crf = await encodeQuick(src, info, work, videoFile, settings, ctx, videoProgress)
+    } else if (settings.method === "av1an") {
       crf = await encodeWithAv1an(src, info, work, videoFile, settings, ctx, videoProgress)
     } else {
       crf = await encodeWithSingleCrf(src, info, work, videoFile, settings, ctx, videoProgress)
     }
   } catch (err) {
     if (err instanceof CanceledError) throw err
+    if (err instanceof NotSmallerError) {
+      ctx.log(`本番のエンコードを省略: ${err.message}`)
+      lap("映像", videoStart)
+      lap("合計", t0)
+      const note = originalPlayable ? "" : ` ※元動画もそのままでは再生に問題あり (${originalNote})`
+      return { ...base, reason: `縮まない見込み (${err.message})${note}` }
+    }
     const message = err instanceof Error ? err.message : String(err)
     ctx.log(`映像のエンコードに失敗: ${message}`)
     lap("映像", videoStart)
@@ -160,7 +172,7 @@ export async function runPipeline(job: Job, settings: EncodeSettings, ctx: JobCo
   let worstScenes: JobResult["worstScenes"]
   if (encodedFrames > 0 && !encodedErrors.length) {
     t = Date.now()
-    const measured = await measureQuality(muxed, src, work, v.avgFps || v.fps || 30, encodedFrames, ctx, (frac) =>
+    const measured = await measureQuality(muxed, src, work, v.avgFps || v.fps || 30, encodedFrames, settings.measureSubsample, ctx, (frac) =>
       ctx.progress("画質を測定中", WEIGHTS.check + WEIGHTS.audio + WEIGHTS.video + WEIGHTS.verify + WEIGHTS.measure * frac))
     metrics = measured.metrics
     worstScenes = measured.worstScenes
@@ -327,6 +339,158 @@ function parseAv1anLog(logFile: string): { chunk: string; frames: number; q: num
   return [...byChunk.values()].sort((a, b) => a.chunk.localeCompare(b.chunk))
 }
 
+// ===== 速い方式: 動画全体から短い区間を集めたサンプルで CRF を決め、1本全体を1つの CRF でエンコード =====
+// av1an のシーンごとの探索は N100 で動画1分あたり15〜30分かかるため、探索はサンプル (既定 8秒分) だけで行う。
+// 探索と本番は同じプリセットで行う (プリセットが違うと同じ CRF でも画質が変わり、探索の結果がずれるため)
+const QUICK_SEGMENT_SECONDS = 1
+// 1 CRF あたり VMAF が下がる量の目安 (CRF 40〜50 あたりの実測。2点そろうまでの次の CRF の見積もりに使う)
+const QUICK_VMAF_PER_CRF = 0.35
+// 最初に試す CRF (VMAF 平均 95 だと多くの動画で 48〜52 に落ち着く)
+const QUICK_START_CRF = 48
+// 見積もりで次の CRF へ一度に動かす最大の幅 (見積もりが外れて行き過ぎないように)
+const QUICK_MAX_STEP = 8
+// サンプルからのサイズの見積もりは粗いので、keepRatio にこれだけ余裕を持たせてから「縮まない」と判断する
+const QUICK_SIZE_MARGIN = 0.05
+
+async function encodeQuick(
+  src: string, info: MediaInfo, work: string, output: string, settings: EncodeSettings, ctx: JobContext,
+  onProgress: (frac: number, label: string) => void,
+): Promise<JobResult["crf"]> {
+  const opts: RunOptions = { signal: ctx.signal }
+  const v = info.video!
+  const threads = os.availableParallelism()
+  // 中断から再開したときに前回の途中までの出力が残っていると完成品と間違えるので消しておく
+  removeQuietly(output)
+
+  // 1. サンプル: 全体に均等に散らばった 1秒の区間を集め、可逆 (FFV1) で1つのファイルにする
+  //    短い動画は全編をそのまま使い、探索でエンコードしたものをそのまま本番の結果にする (同じ処理を2回しない)
+  onProgress(0, "サンプルを作成中")
+  const duration = info.duration
+  const whole = duration <= settings.sampleSeconds * 1.5
+  const sample = whole ? src : path.join(work, "sample.mkv")
+  // 入力側のオプション: 回転はデコード時に適用せず、結合のときに元と同じ回転情報を付ける
+  const input = ["-noautorotate", "-i", sample]
+  const videoOnly = ["-map", "0:v:0", "-an", "-sn", "-dn", "-fps_mode", "passthrough"]
+  let sampleSeconds = duration
+  if (!whole) {
+    const count = Math.max(1, Math.round(settings.sampleSeconds / QUICK_SEGMENT_SECONDS))
+    const ranges: string[] = []
+    for (let i = 0; i < count; i++) {
+      const start = v.startTime + (duration * (i + 0.5)) / count - QUICK_SEGMENT_SECONDS / 2
+      ranges.push(`between(t,${start.toFixed(3)},${(start + QUICK_SEGMENT_SECONDS).toFixed(3)})`)
+    }
+    await runChecked("ffmpeg", [
+      "-hide_banner", "-nostdin", "-v", "error", "-y", "-noautorotate", "-i", src, ...videoOnly,
+      "-vf", `select='${ranges.join("+")}',setpts=N/FRAME_RATE/TB,format=yuv420p10le`, "-c:v", "ffv1", "-threads", String(threads), sample,
+    ], opts)
+    const frames = await countPackets(sample, "v:0", opts)
+    sampleSeconds = frames / (v.avgFps || v.fps || 30)
+    ctx.log(`サンプル: ${count} 区間 × ${QUICK_SEGMENT_SECONDS}秒 (${frames} フレーム)`)
+  } else {
+    ctx.log(`サンプル: 全編 (${settings.sampleSeconds * 1.5}秒以下のため)`)
+  }
+
+  const svt = (crfValue: number) => [
+    "-c:v", "libsvtav1", "-preset", String(settings.preset), "-crf", String(crfValue), "-pix_fmt", "yuv420p10le",
+    "-svtav1-params", ["lp=" + threads, ...svtParamsForFfmpeg(info, settings)].join(":"),
+  ]
+
+  // 2. 探索: サンプルを CRF を変えてエンコードし、VMAF (probingStat で集計) が目標以上になる最大の CRF を探す
+  const trialFile = (crfValue: number) => path.join(work, `trial-${crfValue}.mkv`)
+  const vmafLog = path.join(work, "trial-vmaf.json")
+  const scores = new Map<number, number>()
+  const sizes = new Map<number, number>()
+  const scoreAt = async (crfValue: number) => {
+    const trial = trialFile(crfValue)
+    await runChecked("ffmpeg", ["-hide_banner", "-nostdin", "-v", "error", "-y", ...input, ...videoOnly, ...svt(crfValue), trial], opts)
+    const align = "settb=1/1000,setpts=N,format=yuv420p10le"
+    await runChecked("ffmpeg", ["-hide_banner", "-nostdin", "-v", "error", "-noautorotate", "-i", trial, ...input, "-lavfi",
+      `[0:v]${align}[d];[1:v]${align}[r];[d][r]libvmaf=n_threads=${threads}:n_subsample=2:log_fmt=json:log_path=${vmafLog.replace(/[\\':]/g, "\\$&")}`,
+      "-f", "null", "-"], opts)
+    const data = JSON.parse(fs.readFileSync(vmafLog, "utf8")) as { frames: { metrics: { vmaf: number } }[] }
+    const score = aggregate(data.frames.map((f) => f.metrics.vmaf), settings.probingStat)
+    scores.set(crfValue, score)
+    sizes.set(crfValue, fs.statSync(trial).size)
+    ctx.log(`  crf=${crfValue} → サンプル VMAF (${settings.probingStat}) ${score.toFixed(2)}、サイズ見積もり 元の ${(estimateRatio(crfValue) * 100).toFixed(0)}%`)
+    return score
+  }
+
+  // 結果のサイズの見積もり (元に対する比率): サンプルの映像のビットレート × 尺 + 音声 (Opus)
+  const sourceSize = fs.statSync(src).size
+  const audioBytesPerSecond = info.audio ? (settings.audioBitrate * 1000) / 8 : 0
+  const estimateRatio = (crfValue: number) =>
+    ((sizes.get(crfValue) ?? 0) / Math.max(sampleSeconds, 0.1) + audioBytesPerSecond) * duration / sourceSize
+
+  const target = settings.targetQuality
+  const clamp = (x: number) => Math.min(settings.crfMax, Math.max(settings.crfMin, Math.round(x)))
+  let crf = clamp(QUICK_START_CRF)
+  for (let i = 0; i < settings.probes; i++) {
+    onProgress((0.35 * i) / settings.probes, `CRF を探索中 (crf ${crf})`)
+    await scoreAt(crf)
+    const passing = [...scores].filter(([, s]) => s >= target).sort((a, b) => b[0] - a[0])[0]
+    const failing = [...scores].filter(([, s]) => s < target).sort((a, b) => a[0] - b[0])[0]
+    let next: number
+    if (passing && failing) {
+      // 合格した最大の CRF と不合格の最小の CRF の間を直線で補間する
+      // CRF 1 の差はサイズで 3% ほどなので、幅 2 まで絞れたら合格側で決める
+      if (failing[0] - passing[0] <= 2) break
+      const t = (passing[1] - target) / (passing[1] - failing[1])
+      next = Math.min(failing[0] - 1, Math.max(passing[0] + 1, Math.floor(passing[0] + t * (failing[0] - passing[0]))))
+    } else if (passing) {
+      if (passing[0] >= settings.crfMax) break
+      next = clamp(passing[0] + Math.min(QUICK_MAX_STEP, Math.max(2, Math.ceil((passing[1] - target) / QUICK_VMAF_PER_CRF))))
+    } else {
+      if (failing[0] <= settings.crfMin) break
+      next = clamp(failing[0] - Math.min(QUICK_MAX_STEP, Math.max(2, Math.ceil((target - failing[1]) / QUICK_VMAF_PER_CRF))))
+    }
+    if (scores.has(next)) break
+    crf = next
+  }
+  const best = [...scores].filter(([, s]) => s >= target).sort((a, b) => b[0] - a[0])[0]
+  crf = best ? best[0] : settings.crfMin
+  if (!best) ctx.log(`  CRF ${settings.crfMin} でも目標に届かないため CRF ${settings.crfMin} を使用`)
+  if (best && estimateRatio(crf) >= settings.keepRatio + QUICK_SIZE_MARGIN) {
+    for (const tried of scores.keys()) removeQuietly(trialFile(tried))
+    if (!whole) removeQuietly(sample)
+    throw new NotSmallerError(`目標画質を満たす CRF ${crf} だと元の約 ${(estimateRatio(crf) * 100).toFixed(0)}%`)
+  }
+  if (whole && fs.existsSync(trialFile(crf))) {
+    ctx.log(`CRF ${crf} (探索で全編をエンコードしたものをそのまま使う)`)
+    fs.renameSync(trialFile(crf), output)
+  }
+  for (const tried of scores.keys()) removeQuietly(trialFile(tried))
+  if (!whole) removeQuietly(sample)
+
+  // 3. 本番
+  if (!fs.existsSync(output)) {
+    ctx.log(`CRF ${crf} で全体をエンコード (preset ${settings.preset})`)
+    const totalSeconds = duration || 1
+    await runChecked("ffmpeg", [
+      "-hide_banner", "-nostdin", "-v", "error", "-y", "-progress", "pipe:1", "-noautorotate", "-i", src, ...videoOnly, ...svt(crf), output,
+    ], {
+      signal: ctx.signal,
+      onStdout: (line) => {
+        const m = line.match(/^out_time_us=(\d+)/)
+        if (m) onProgress(0.35 + 0.65 * (Number(m[1]) / 1e6 / totalSeconds), "映像をエンコード中")
+      },
+    })
+  }
+  return { min: crf, max: crf, mean: crf, scenes: 1 }
+}
+
+// av1an の --probing-stat と同じ書き方 (mean / median / harmonic / minimum / percentile=N / auto) でフレームの点数をまとめる
+function aggregate(values: number[], stat: string): number {
+  if (!values.length) return 0
+  const sorted = [...values].sort((a, b) => a - b)
+  const pct = (p: number) => sorted[Math.min(sorted.length - 1, Math.floor((p / 100) * sorted.length))]
+  if (stat === "minimum") return sorted[0]
+  if (stat === "median") return pct(50)
+  if (stat === "harmonic") return values.length / values.reduce((s, x) => s + 1 / Math.max(x, 0.01), 0)
+  const m = stat.match(/^percentile=([\d.]+)$/)
+  if (m) return pct(Number(m[1]))
+  return values.reduce((s, x) => s + x, 0) / values.length
+}
+
 // ===== 7月方式: サンプル区間で VMAF 平均が目標を満たす最大の CRF を二分探索し、1本全体を1つの CRF でエンコード =====
 const SAMPLE_SECONDS = 20
 const SAMPLE_COUNT = 3
@@ -414,20 +578,24 @@ function svtParamsForFfmpeg(info: MediaInfo, settings: EncodeSettings): string[]
 // ===== 全編の画質測定 =====
 // VMAF はフレームごとの点数から平均だけでなく下位パーセンタイル・最小も出す (平均では一部の劣化場面が隠れるため)
 async function measureQuality(
-  encoded: string, src: string, work: string, fps: number, frames: number, ctx: JobContext,
+  encoded: string, src: string, work: string, fps: number, frames: number, subsample: number, ctx: JobContext,
   onProgress: (frac: number) => void,
 ): Promise<{ metrics: Metrics; worstScenes: JobResult["worstScenes"] }> {
   const vmafLog = path.join(work, "vmaf.json")
   const threads = os.availableParallelism()
   // フレーム番号で揃える (タイムスタンプのずれ・可変フレームレートの影響を受けないように)
   const align = "settb=1/1000,setpts=N,format=yuv420p10le"
-  const graph = [
-    `[0:v]${align},split[d1][d2]`,
-    `[1:v]${align},split[r1][r2]`,
-    `[d1][r1]libvmaf=n_threads=${threads}:log_fmt=json:log_path=${vmafLog.replace(/[\\':]/g, "\\$&")}`,
-    // XPSNR は ffmpeg 9 の 10bit 入力だと値が壊れるため 8bit で測る
-    `[d2]format=yuv420p[d3];[r2]format=yuv420p[r3];[d3][r3]xpsnr`,
-  ].join(";")
+  const vmaf = `libvmaf=n_threads=${threads}${subsample > 1 ? `:n_subsample=${subsample}` : ""}:log_fmt=json:log_path=${vmafLog.replace(/[\\':]/g, "\\$&")}`
+  // 間引くとき (subsample > 1) は XPSNR も省く (全フレームの XPSNR だけで N100 だと動画の尺の3割ほどかかるため)
+  const graph = subsample > 1
+    ? `[0:v]${align}[d1];[1:v]${align}[r1];[d1][r1]${vmaf}`
+    : [
+      `[0:v]${align},split[d1][d2]`,
+      `[1:v]${align},split[r1][r2]`,
+      `[d1][r1]${vmaf}`,
+      // XPSNR は ffmpeg 9 の 10bit 入力だと値が壊れるため 8bit で測る
+      `[d2]format=yuv420p[d3];[r2]format=yuv420p[r3];[d3][r3]xpsnr`,
+    ].join(";")
   const r = await runChecked("ffmpeg", ["-hide_banner", "-nostdin", "-progress", "pipe:1", "-i", encoded, "-i", src, "-filter_complex", graph, "-f", "null", "-"], {
     signal: ctx.signal,
     onStdout: (line) => {
@@ -444,14 +612,15 @@ async function measureQuality(
   let worstScenes: JobResult["worstScenes"] = []
   try {
     const data = JSON.parse(fs.readFileSync(vmafLog, "utf8")) as { frames: { frameNum: number; metrics: { vmaf: number } }[] }
-    const scores = data.frames.map((f) => f.metrics.vmaf)
+    const points = data.frames.map((f) => ({ frame: f.frameNum, vmaf: f.metrics.vmaf }))
+    const scores = points.map((p) => p.vmaf)
     if (scores.length) {
       const sorted = [...scores].sort((a, b) => a - b)
       const pct = (p: number) => sorted[Math.min(sorted.length - 1, Math.floor((p / 100) * sorted.length))]
       const mean = scores.reduce((s, x) => s + x, 0) / scores.length
       const harmonic = scores.length / scores.reduce((s, x) => s + 1 / Math.max(x, 0.01), 0)
       metrics.vmaf = { mean, harmonic, min: sorted[0], p1: pct(1), p5: pct(5) }
-      worstScenes = findWorstScenes(scores, fps)
+      worstScenes = findWorstScenes(points, fps, subsample)
     }
   } catch {
     ctx.log("VMAF のログを読めませんでした")
@@ -460,8 +629,10 @@ async function measureQuality(
 }
 
 // 1秒の移動平均が低い場面を、互いに 3秒以上離して最大5か所選ぶ (見比べで確認する場所の候補)
-function findWorstScenes(scores: number[], fps: number): { time: number; vmaf: number }[] {
-  const win = Math.max(1, Math.round(fps))
+// points は測ったフレームだけ (間引いたときは subsample フレームおきに1つ)
+function findWorstScenes(points: { frame: number; vmaf: number }[], fps: number, subsample: number): { time: number; vmaf: number }[] {
+  const scores = points.map((p) => p.vmaf)
+  const win = Math.max(1, Math.round(fps / subsample))
   const avgs: { start: number; avg: number }[] = []
   let sum = 0
   for (let i = 0; i < scores.length; i++) {
@@ -481,6 +652,6 @@ function findWorstScenes(scores: number[], fps: number): { time: number; vmaf: n
     let worst = p.start
     for (let i = p.start; i < Math.min(scores.length, p.start + win); i++) if (scores[i] < scores[worst]) worst = i
     // フレームの中央の時刻にする (ちょうど境目だと前のフレームが表示されることがあるため)
-    return { time: Math.round(((worst + 0.5) / fps) * 1000) / 1000, vmaf: Math.round(p.avg * 100) / 100 }
+    return { time: Math.round(((points[worst].frame + 0.5) / fps) * 1000) / 1000, vmaf: Math.round(p.avg * 100) / 100 }
   })
 }
