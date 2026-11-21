@@ -30,6 +30,15 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// 設定の開閉
+const header = document.getElementById('encode-header');
+const settingsToggle = document.getElementById('encode-settings-toggle');
+settingsToggle.addEventListener('click', () => {
+  const open = header.classList.toggle('settings-open');
+  settingsToggle.classList.toggle('is-active', open);
+  settingsToggle.setAttribute('aria-expanded', String(open));
+});
+
 document.getElementById('encode-modal-close').addEventListener('click', () => modal.close());
 modal.addEventListener('close', () => {
   player.unload();

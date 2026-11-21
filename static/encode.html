@@ -54,12 +54,16 @@
     <header id="encode-header">
       <div id="encode-header-bar">
         <h1>エンコード</h1>
+        <button type="button" class="encode-btn encode-btn-primary" hx-post="/encode/jobs" hx-vals='{"all": "1"}' hx-swap="none"
+          hx-confirm="まだエンコードしていない動画をすべて待ちに入れますか？"><i data-lucide="play"></i>全部エンコード</button>
+        <button type="button" class="encode-btn" id="encode-settings-toggle" aria-expanded="false" aria-controls="encode-settings"><i data-lucide="settings"></i>設定</button>
         <a href="/" id="encode-back"><i data-lucide="arrow-left"></i>一覧へ</a>
       </div>
+      <div id="encode-settings" hx-get="/encode/settings" hx-trigger="load"></div>
       <div id="encode-summary"></div>
     </header>
 
-    <div id="encode-list" hx-get="/encode/list" hx-trigger="load"></div>
+    <div id="encode-list" hx-get="/encode/list" hx-trigger="load, every 3s [document.visibilityState === 'visible'], encode-changed from:body"></div>
 
     <script type="module" src="/static/encode.js"></script>
   </body>

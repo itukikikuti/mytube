@@ -410,9 +410,10 @@ body:has(#encode-modal[open]) {
   opacity: 1;
 }
 
+/* ラベルは下に置く (左上の閉じるボタンと重ならないように) */
 .compare-label {
   position: absolute;
-  top: 10px;
+  bottom: 10px;
   z-index: 1;
   padding: 2px 8px;
   border-radius: 4px;
@@ -610,4 +611,9 @@ body:has(#encode-modal[open]) {
     height: auto;
     max-height: 34vh;
   }
+}
+
+/* 設定を開いている間は固定表示をやめる (スマホで画面が埋まらないように) */
+#encode-header.settings-open {
+  position: static;
 }
