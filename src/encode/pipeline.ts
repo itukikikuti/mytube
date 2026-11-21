@@ -200,7 +200,11 @@ export async function runPipeline(job: Job, settings: EncodeSettings, ctx: JobCo
   const outPath = resolveInside(encodePaths.outputDir, outName)
   if (!outPath) throw new Error(`出力先のパスが不正です: ${outName}`)
   fs.mkdirSync(path.dirname(outPath), { recursive: true })
-  removeQuietly(outPath)
+  // 前回の結果 (判定が変わった場合は反対側のフォルダにある) を消してから置く
+  for (const previous of [encodedName(job.file), path.posix.join(REJECTED_DIR_NAME, encodedName(job.file))]) {
+    const previousPath = resolveInside(encodePaths.outputDir, previous)
+    if (previousPath) removeQuietly(previousPath)
+  }
   fs.renameSync(muxed, outPath)
   lap("合計", t0)
   ctx.log(`判定: ${decision === "encoded" ? "結果を採用" : "元を採用"} (${reason}) → encoded/${outName}`)
