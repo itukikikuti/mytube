@@ -4,7 +4,7 @@ import path from "node:path"
 import { REJECTED_DIR_NAME, WORK_DIR_NAME, encodePaths } from "./config.js"
 import type { Job, JobResult, Metrics } from "./db.js"
 import { resolveInside } from "./files.js"
-import { countPackets, decodeErrors, probeMedia, streamDuration, webPlayableReason, type MediaInfo } from "./probe.js"
+import { countPackets, decodeErrors, packetSummary, probeMedia, webPlayableReason, type MediaInfo } from "./probe.js"
 import { CanceledError, run, runChecked, type RunOptions } from "./process.js"
 import type { EncodeSettings } from "./settings.js"
 
@@ -41,6 +41,19 @@ function sec(ms: number) {
   return Math.round(ms / 100) / 10
 }
 
+// 縮まない・失敗などで元を採用するとき、前回の結果 (encoded / _rejected のどちらか) を消しておく
+function removePreviousOutputs(file: string) {
+  for (const previous of [encodedName(file), path.posix.join(REJECTED_DIR_NAME, encodedName(file))]) {
+    const previousPath = resolveInside(encodePaths.outputDir, previous)
+    if (previousPath) removeQuietly(previousPath)
+  }
+}
+
+// ffmpeg の stderr (-v error) からデコードのエラーの行だけを取り出す (SVT-AV1 は自分の情報を stderr に直接出すので除く)
+function errorLines(stderr: string): string[] {
+  return stderr.split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("Svt["))
+}
+
 // 1本の動画をエンコードして、結果を採用するか元を採用するかを決める
 export async function runPipeline(job: Job, settings: EncodeSettings, ctx: JobContext): Promise<JobResult> {
   const src = resolveInside(encodePaths.uploadDir, job.file)
@@ -54,8 +67,8 @@ export async function runPipeline(job: Job, settings: EncodeSettings, ctx: JobCo
     timings[name] = sec(Date.now() - from)
   }
 
-  // ===== 1. 元動画の解析と全編デコード検査 =====
-  ctx.progress("元動画を検査中", 0)
+  // ===== 1. 元動画の解析 =====
+  ctx.progress("元動画を解析中", 0)
   const sourceSize = fs.statSync(src).size
   const info = await probeMedia(src, opts)
   if (!info.video) throw new Error("映像ストリームがありません")
@@ -63,40 +76,63 @@ export async function runPipeline(job: Job, settings: EncodeSettings, ctx: JobCo
   ctx.log(`元動画: ${v.codec} ${v.width}x${v.height} ${v.fps.toFixed(3)}fps (平均 ${v.avgFps.toFixed(3)}) ${v.pixFmt} ${info.duration.toFixed(2)}秒 ${sourceSize} バイト` +
     (info.audio ? ` / 音声 ${info.audio.codec} ${info.audio.channels}ch` : " / 音声なし") + (v.rotation ? ` / 回転 ${v.rotation}°` : ""))
   if (Math.abs(v.fps - v.avgFps) > 0.01 * v.fps) ctx.log("注意: 可変フレームレートの可能性があります (尺の検査で確認します)")
-  let t = Date.now()
-  const sourceErrors = await decodeErrors(src, opts)
-  lap("元動画の検査", t)
-  ctx.log(sourceErrors.length ? `元動画のデコードでエラー ${sourceErrors.length} 件:\n  ${sourceErrors.slice(0, 10).join("\n  ")}` : "元動画のデコード: エラーなし")
+  const sourcePackets = await packetSummary(src, opts)
+  const sourceFrames = sourcePackets.video.packets
   const unplayable = webPlayableReason(job.file, info)
-  const originalPlayable = !unplayable && sourceErrors.length === 0
-  const originalNote = unplayable ?? (sourceErrors.length ? `元動画にデコードエラー ${sourceErrors.length} 件` : undefined)
-  const sourceFrames = await countPackets(src, "v:0", opts)
 
-  const base: JobResult = {
-    decision: "original",
-    reason: "",
-    method: settings.method,
-    sourceSize,
-    sourceErrors: sourceErrors.length,
-    originalPlayable,
-    originalNote,
-    timings,
+  // 元動画のデコード検査は、全編をデコードする工程 (音声のエンコード・サンプル作成または探索・av1an 以外の本番) で出たエラーを集める
+  // (検査のためだけに全編をもう一度デコードしない)。映像を全編デコードする前に終わったときだけ、映像の検査を別に行う
+  const audioErrors: string[] = []
+  let videoErrors: string[] | undefined
+  let sourceChecked: { errors: number; originalPlayable: boolean; originalNote?: string } | undefined
+  const checkSource = async () => {
+    if (sourceChecked) return sourceChecked
+    if (!videoErrors) {
+      const t = Date.now()
+      videoErrors = await decodeErrors(src, opts, "video")
+      lap("元動画の検査", t)
+    }
+    const errors = [...videoErrors, ...audioErrors]
+    ctx.log(errors.length ? `元動画のデコードでエラー ${errors.length} 件:\n  ${errors.slice(0, 10).join("\n  ")}` : "元動画のデコード: エラーなし")
+    const originalPlayable = !unplayable && errors.length === 0
+    const originalNote = unplayable ?? (errors.length ? `元動画にデコードエラー ${errors.length} 件` : undefined)
+    sourceChecked = { errors: errors.length, originalPlayable, originalNote }
+    return sourceChecked
+  }
+  const base = async (): Promise<JobResult> => {
+    const s = await checkSource()
+    return {
+      decision: "original",
+      reason: "",
+      method: settings.method,
+      sourceSize,
+      sourceErrors: s.errors,
+      originalPlayable: s.originalPlayable,
+      originalNote: s.originalNote,
+      timings,
+    }
+  }
+  const playableNote = async () => {
+    const s = await checkSource()
+    return s.originalPlayable ? "" : ` ※元動画もそのままでは再生に問題あり (${s.originalNote})`
   }
 
   // ===== 2. 音声: 常に Opus に再エンコード (元の音声が壊れていても補修され、再生できる形になる) =====
   const audioFile = path.join(work, "audio.mka")
   if (info.audio) {
     ctx.progress("音声をエンコード中", WEIGHTS.check)
-    t = Date.now()
-    await runChecked("ffmpeg", [
+    let t = Date.now()
+    const r = await runChecked("ffmpeg", [
       "-hide_banner", "-nostdin", "-v", "error", "-y", "-err_detect", "ignore_err",
       "-i", src, "-map", "0:a:0", "-vn", "-sn", "-dn",
       "-af", "aresample=async=1",
       "-c:a", "libopus", "-b:a", `${settings.audioBitrate}k`,
       audioFile,
     ], opts)
+    audioErrors.push(...errorLines(r.stderr))
     lap("音声", t)
   }
+  const audioSize = info.audio ? fs.statSync(audioFile).size : 0
 
   // ===== 3. 映像 =====
   const videoFile = path.join(work, "video.mkv")
@@ -104,9 +140,14 @@ export async function runPipeline(job: Job, settings: EncodeSettings, ctx: JobCo
   let crf: JobResult["crf"]
   const videoProgress = (frac: number, label: string) =>
     ctx.progress(label, WEIGHTS.check + WEIGHTS.audio + WEIGHTS.video * Math.min(1, frac))
+  // 本番のエンコード中に映像だけでこれを超えたら、結合しても元の keepRatio 倍を下回らないので打ち切る
+  // (MKV と MP4 の入れ物の大きさの差を見込んで 1% の余裕を持たせる)
+  const videoSizeLimit = sourceSize * settings.keepRatio * 1.01 - audioSize
   try {
     if (settings.method === "quick") {
-      crf = await encodeQuick(src, info, work, videoFile, settings, ctx, videoProgress)
+      crf = await encodeQuick(src, info, work, videoFile, settings, ctx, videoProgress, videoSizeLimit, (errors) => {
+        videoErrors = errors
+      })
     } else if (settings.method === "av1an") {
       crf = await encodeWithAv1an(src, info, work, videoFile, settings, ctx, videoProgress)
     } else {
@@ -114,18 +155,17 @@ export async function runPipeline(job: Job, settings: EncodeSettings, ctx: JobCo
     }
   } catch (err) {
     if (err instanceof CanceledError) throw err
+    lap("映像", videoStart)
+    const result = await base()
+    removePreviousOutputs(job.file)
+    lap("合計", t0)
     if (err instanceof NotSmallerError) {
-      ctx.log(`本番のエンコードを省略: ${err.message}`)
-      lap("映像", videoStart)
-      lap("合計", t0)
-      const note = originalPlayable ? "" : ` ※元動画もそのままでは再生に問題あり (${originalNote})`
-      return { ...base, reason: `縮まない見込み (${err.message})${note}` }
+      ctx.log(`本番のエンコードを省略・打ち切り: ${err.message}`)
+      return { ...result, reason: `縮まない見込み (${err.message})${await playableNote()}` }
     }
     const message = err instanceof Error ? err.message : String(err)
     ctx.log(`映像のエンコードに失敗: ${message}`)
-    lap("映像", videoStart)
-    lap("合計", t0)
-    return { ...base, reason: `エンコード失敗: ${message.split("\n")[0]}` }
+    return { ...result, reason: `エンコード失敗: ${message.split("\n")[0]}` }
   }
   lap("映像", videoStart)
 
@@ -142,52 +182,68 @@ export async function runPipeline(job: Job, settings: EncodeSettings, ctx: JobCo
     muxed,
   ], opts)
   const encodedSize = fs.statSync(muxed).size
+  const ratio = encodedSize / sourceSize
+  const sourceResult = await base()
 
-  // ===== 5. 検査: 全編デコード・フレーム数・尺 =====
-  ctx.progress("変換結果を検査中", WEIGHTS.check + WEIGHTS.audio + WEIGHTS.video)
-  t = Date.now()
+  // 縮まなければ、検査・画質測定の結果に関わらず元を採用になるので、検査・測定をせずに元を採用する
+  if (ratio >= settings.keepRatio) {
+    removePreviousOutputs(job.file)
+    removeQuietly(muxed)
+    lap("合計", t0)
+    const reason = `縮まない (元の ${(ratio * 100).toFixed(1)}%、基準 ${(settings.keepRatio * 100).toFixed(0)}% 未満)${await playableNote()}`
+    ctx.log(`判定: 元を採用 (${reason}、検査・画質測定は省略)`)
+    return { ...sourceResult, reason, encodedSize, crf }
+  }
+
+  // ===== 5. 検査 (フレーム数・尺) と全編の画質測定 (VMAF のフレームごとの点数 + XPSNR) =====
+  // 変換結果の映像の全編デコード検査は、画質測定で全編をデコードするときに一緒に行う
+  ctx.progress("画質を測定中", WEIGHTS.check + WEIGHTS.audio + WEIGHTS.video)
+  let t = Date.now()
   const problems: string[] = []
-  const encodedErrors = await decodeErrors(muxed, opts)
-  if (encodedErrors.length) problems.push(`変換結果のデコードでエラー ${encodedErrors.length} 件 (${encodedErrors[0]})`)
-  const encodedFrames = await countPackets(muxed, "v:0", opts)
+  const encodedPackets = await packetSummary(muxed, opts)
+  const encodedFrames = encodedPackets.video.packets
   if (Math.abs(encodedFrames - sourceFrames) > 1) problems.push(`フレーム数が一致しない (元 ${sourceFrames} / 結果 ${encodedFrames})`)
-  const srcVideoDuration = await streamDuration(src, "v:0", opts)
-  const encVideoDuration = await streamDuration(muxed, "v:0", opts)
+  const srcVideoDuration = sourcePackets.video.duration
+  const encVideoDuration = encodedPackets.video.duration
   const tolerance = Math.max(0.2, 2 / (v.avgFps || 30))
   if (Math.abs(srcVideoDuration - encVideoDuration) > tolerance) problems.push(`映像の尺が一致しない (元 ${srcVideoDuration.toFixed(3)}秒 / 結果 ${encVideoDuration.toFixed(3)}秒)`)
   let audioSource: number | undefined
   let audioEncoded: number | undefined
   if (info.audio) {
-    audioSource = await streamDuration(src, "a:0", opts)
-    audioEncoded = await streamDuration(muxed, "a:0", opts)
+    audioSource = sourcePackets.audio.duration
+    audioEncoded = encodedPackets.audio.duration
     if (Math.abs(audioSource - audioEncoded) > 0.5) problems.push(`音声の尺が一致しない (元 ${audioSource.toFixed(2)}秒 / 結果 ${audioEncoded.toFixed(2)}秒)`)
   }
+  const encodedErrors = info.audio ? await decodeErrors(muxed, opts, "audio") : []
   lap("検査", t)
-  ctx.log(`検査: フレーム 元 ${sourceFrames} / 結果 ${encodedFrames}、映像 元 ${srcVideoDuration.toFixed(3)}秒 / 結果 ${encVideoDuration.toFixed(3)}秒` +
-    (info.audio ? `、音声 元 ${audioSource!.toFixed(2)}秒 / 結果 ${audioEncoded!.toFixed(2)}秒` : "") +
-    (problems.length ? `\n問題: ${problems.join(" / ")}` : "、問題なし"))
 
-  // ===== 6. 全編の画質測定 (VMAF のフレームごとの点数 + XPSNR) =====
   let metrics: Metrics | undefined
   let worstScenes: JobResult["worstScenes"]
-  if (encodedFrames > 0 && !encodedErrors.length) {
+  if (encodedFrames > 0) {
     t = Date.now()
     const measured = await measureQuality(muxed, src, work, v.avgFps || v.fps || 30, encodedFrames, settings.measureSubsample, ctx, (frac) =>
       ctx.progress("画質を測定中", WEIGHTS.check + WEIGHTS.audio + WEIGHTS.video + WEIGHTS.verify + WEIGHTS.measure * frac))
-    metrics = measured.metrics
-    worstScenes = measured.worstScenes
     lap("画質測定", t)
-    const vm = metrics.vmaf
-    if (vm) ctx.log(`VMAF: 平均 ${vm.mean.toFixed(2)} / 調和平均 ${vm.harmonic.toFixed(2)} / 下位5% ${vm.p5.toFixed(2)} / 下位1% ${vm.p1.toFixed(2)} / 最小 ${vm.min.toFixed(2)}`)
-    const xp = metrics.xpsnr
-    if (xp) ctx.log(`XPSNR: Y ${xp.y.toFixed(2)} / U ${xp.u.toFixed(2)} / V ${xp.v.toFixed(2)} dB`)
+    // 測定のデコードのエラーは元動画のものも混ざる。元動画にエラーがあったときは、変換結果だけを別にデコードして確かめる
+    const videoDecodeErrors = sourceResult.sourceErrors ? await decodeErrors(muxed, opts, "video") : measured.errors
+    encodedErrors.push(...videoDecodeErrors)
+    if (!encodedErrors.length) {
+      metrics = measured.metrics
+      worstScenes = measured.worstScenes
+    }
   }
+  if (encodedErrors.length) problems.push(`変換結果のデコードでエラー ${encodedErrors.length} 件 (${encodedErrors[0]})`)
+  ctx.log(`検査: フレーム 元 ${sourceFrames} / 結果 ${encodedFrames}、映像 元 ${srcVideoDuration.toFixed(3)}秒 / 結果 ${encVideoDuration.toFixed(3)}秒` +
+    (info.audio ? `、音声 元 ${audioSource!.toFixed(2)}秒 / 結果 ${audioEncoded!.toFixed(2)}秒` : "") +
+    (problems.length ? `\n問題: ${problems.join(" / ")}` : "、問題なし"))
+  const vm = metrics?.vmaf
+  if (vm) ctx.log(`VMAF: 平均 ${vm.mean.toFixed(2)} / 調和平均 ${vm.harmonic.toFixed(2)} / 下位5% ${vm.p5.toFixed(2)} / 下位1% ${vm.p1.toFixed(2)} / 最小 ${vm.min.toFixed(2)}`)
+  const xp = metrics?.xpsnr
+  if (xp) ctx.log(`XPSNR: Y ${xp.y.toFixed(2)} / U ${xp.u.toFixed(2)} / V ${xp.v.toFixed(2)} dB`)
 
-  // ===== 7. 採用の判定 =====
-  const ratio = encodedSize / sourceSize
+  // ===== 6. 採用の判定 (縮むことは確認済み) =====
   let decision: JobResult["decision"] = "encoded"
   let reason: string
-  const vm = metrics?.vmaf
   if (problems.length) {
     decision = "original"
     reason = `検査エラー: ${problems.join(" / ")}`
@@ -197,15 +253,10 @@ export async function runPipeline(job: Job, settings: EncodeSettings, ctx: JobCo
   } else if (vm.mean < settings.acceptVmafMean || vm.p1 < settings.acceptVmafLow) {
     decision = "original"
     reason = `画質が合格ラインに届かない (VMAF 平均 ${vm.mean.toFixed(2)} / 下位1% ${vm.p1.toFixed(2)}、合格ライン ${settings.acceptVmafMean} / ${settings.acceptVmafLow})`
-  } else if (ratio >= settings.keepRatio) {
-    decision = "original"
-    reason = `縮まない (元の ${(ratio * 100).toFixed(1)}%、基準 ${(settings.keepRatio * 100).toFixed(0)}% 未満)`
   } else {
     reason = `元の ${(ratio * 100).toFixed(1)}% に縮小、画質は合格ライン以上`
   }
-  if (decision === "original" && !originalPlayable) {
-    reason += ` ※元動画もそのままでは再生に問題あり (${originalNote})`
-  }
+  if (decision === "original") reason += await playableNote()
 
   // 結果を encoded へ移す。元を採用したときも見比べ用に _rejected に残す
   const outName = decision === "encoded" ? encodedName(job.file) : path.posix.join(REJECTED_DIR_NAME, encodedName(job.file))
@@ -213,16 +264,13 @@ export async function runPipeline(job: Job, settings: EncodeSettings, ctx: JobCo
   if (!outPath) throw new Error(`出力先のパスが不正です: ${outName}`)
   fs.mkdirSync(path.dirname(outPath), { recursive: true })
   // 前回の結果 (判定が変わった場合は反対側のフォルダにある) を消してから置く
-  for (const previous of [encodedName(job.file), path.posix.join(REJECTED_DIR_NAME, encodedName(job.file))]) {
-    const previousPath = resolveInside(encodePaths.outputDir, previous)
-    if (previousPath) removeQuietly(previousPath)
-  }
+  removePreviousOutputs(job.file)
   fs.renameSync(muxed, outPath)
   lap("合計", t0)
   ctx.log(`判定: ${decision === "encoded" ? "結果を採用" : "元を採用"} (${reason}) → encoded/${outName}`)
 
   return {
-    ...base,
+    ...sourceResult,
     decision,
     reason,
     encodedSize,
@@ -355,6 +403,10 @@ const QUICK_SIZE_MARGIN = 0.05
 async function encodeQuick(
   src: string, info: MediaInfo, work: string, output: string, settings: EncodeSettings, ctx: JobContext,
   onProgress: (frac: number, label: string) => void,
+  // 本番のエンコード中に映像がこのバイト数を超えたら縮まないので打ち切る
+  videoSizeLimit: number,
+  // 元動画の映像を全編デコードしたときのエラーの行 (サンプル作成か、短い動画は最初の探索で全編をデコードする)
+  onSourceDecoded: (errors: string[]) => void,
 ): Promise<JobResult["crf"]> {
   const opts: RunOptions = { signal: ctx.signal }
   const v = info.video!
@@ -379,10 +431,14 @@ async function encodeQuick(
       const start = v.startTime + (duration * (i + 0.5)) / count - QUICK_SEGMENT_SECONDS / 2
       ranges.push(`between(t,${start.toFixed(3)},${(start + QUICK_SEGMENT_SECONDS).toFixed(3)})`)
     }
-    await runChecked("ffmpeg", [
+    // 8bit の 4:2:0 はそのまま保存する (10bit にするのはエンコード・測定のときに同じ変換で行われるので結果は同じ。サンプルの読み書きが軽くなる)
+    const sampleFormat = v.pixFmt === "yuv420p" ? "yuv420p" : "yuv420p10le"
+    // 選んだ区間以外もデコードはするので、元動画の映像のデコード検査を兼ねる
+    const r = await runChecked("ffmpeg", [
       "-hide_banner", "-nostdin", "-v", "error", "-y", "-noautorotate", "-i", src, ...videoOnly,
-      "-vf", `select='${ranges.join("+")}',setpts=N/FRAME_RATE/TB,format=yuv420p10le`, "-c:v", "ffv1", "-threads", String(threads), sample,
+      "-vf", `select='${ranges.join("+")}',setpts=N/FRAME_RATE/TB,format=${sampleFormat}`, "-c:v", "ffv1", "-threads", String(threads), sample,
     ], opts)
+    onSourceDecoded(errorLines(r.stderr))
     const frames = await countPackets(sample, "v:0", opts)
     sampleSeconds = frames / (v.avgFps || v.fps || 30)
     ctx.log(`サンプル: ${count} 区間 × ${QUICK_SEGMENT_SECONDS}秒 (${frames} フレーム)`)
@@ -402,7 +458,9 @@ async function encodeQuick(
   const sizes = new Map<number, number>()
   const scoreAt = async (crfValue: number) => {
     const trial = trialFile(crfValue)
-    await runChecked("ffmpeg", ["-hide_banner", "-nostdin", "-v", "error", "-y", ...input, ...videoOnly, ...svt(crfValue), trial], opts)
+    const r = await runChecked("ffmpeg", ["-hide_banner", "-nostdin", "-v", "error", "-y", ...input, ...videoOnly, ...svt(crfValue), trial], opts)
+    // 短い動画は探索で全編をデコードしているので、最初の探索を元動画のデコード検査にする
+    if (whole && !scores.size) onSourceDecoded(errorLines(r.stderr))
     const align = "settb=1/1000,setpts=N,format=yuv420p10le"
     await runChecked("ffmpeg", ["-hide_banner", "-nostdin", "-v", "error", "-noautorotate", "-i", trial, ...input, "-lavfi",
       `[0:v]${align}[d];[1:v]${align}[r];[d][r]libvmaf=n_threads=${threads}:n_subsample=2:log_fmt=json:log_path=${vmafLog.replace(/[\\':]/g, "\\$&")}`,
@@ -427,6 +485,14 @@ async function encodeQuick(
   for (let i = 0; i < settings.probes; i++) {
     onProgress((0.35 * i) / settings.probes, `CRF を探索中 (crf ${crf})`)
     await scoreAt(crf)
+    // 目標に届かない CRF でもう縮まないなら、合格する (より小さい) CRF はさらに大きくなるので、探索を続けずに元を採用する
+    const lowestFailing = [...scores].filter(([, s]) => s < target).sort((a, b) => a[0] - b[0])[0]
+    if (lowestFailing && estimateRatio(lowestFailing[0]) >= settings.keepRatio + QUICK_SIZE_MARGIN) {
+      const message = `目標画質に届かない CRF ${lowestFailing[0]} でも元の約 ${(estimateRatio(lowestFailing[0]) * 100).toFixed(0)}%`
+      for (const tried of scores.keys()) removeQuietly(trialFile(tried))
+      if (!whole) removeQuietly(sample)
+      throw new NotSmallerError(message)
+    }
     const passing = [...scores].filter(([, s]) => s >= target).sort((a, b) => b[0] - a[0])[0]
     const failing = [...scores].filter(([, s]) => s < target).sort((a, b) => a[0] - b[0])[0]
     let next: number
@@ -465,15 +531,35 @@ async function encodeQuick(
   if (!fs.existsSync(output)) {
     ctx.log(`CRF ${crf} で全体をエンコード (preset ${settings.preset})`)
     const totalSeconds = duration || 1
-    await runChecked("ffmpeg", [
-      "-hide_banner", "-nostdin", "-v", "error", "-y", "-progress", "pipe:1", "-noautorotate", "-i", src, ...videoOnly, ...svt(crf), output,
-    ], {
-      signal: ctx.signal,
-      onStdout: (line) => {
-        const m = line.match(/^out_time_us=(\d+)/)
-        if (m) onProgress(0.35 + 0.65 * (Number(m[1]) / 1e6 / totalSeconds), "映像をエンコード中")
-      },
-    })
+    // 出力が videoSizeLimit を超えた時点で縮まないことが確定するので、最後までエンコードせずに打ち切る
+    const limiter = new AbortController()
+    const abortLimiter = () => limiter.abort()
+    ctx.signal.addEventListener("abort", abortLimiter, { once: true })
+    let exceeded = 0
+    try {
+      await runChecked("ffmpeg", [
+        "-hide_banner", "-nostdin", "-v", "error", "-y", "-progress", "pipe:1", "-noautorotate", "-i", src, ...videoOnly, ...svt(crf), output,
+      ], {
+        signal: limiter.signal,
+        onStdout: (line) => {
+          const m = line.match(/^out_time_us=(\d+)/)
+          if (m) onProgress(0.35 + 0.65 * (Number(m[1]) / 1e6 / totalSeconds), "映像をエンコード中")
+          const size = line.match(/^total_size=(\d+)/)
+          if (size && !exceeded && Number(size[1]) > videoSizeLimit) {
+            exceeded = Number(size[1])
+            limiter.abort()
+          }
+        },
+      })
+    } catch (err) {
+      if (exceeded && !ctx.signal.aborted) {
+        removeQuietly(output)
+        throw new NotSmallerError(`本番のエンコード中に映像だけで ${exceeded} バイトになり、元の ${(settings.keepRatio * 100).toFixed(0)}% を超えることが確定`)
+      }
+      throw err
+    } finally {
+      ctx.signal.removeEventListener("abort", abortLimiter)
+    }
   }
   return { min: crf, max: crf, mean: crf, scenes: 1 }
 }
@@ -580,7 +666,7 @@ function svtParamsForFfmpeg(info: MediaInfo, settings: EncodeSettings): string[]
 async function measureQuality(
   encoded: string, src: string, work: string, fps: number, frames: number, subsample: number, ctx: JobContext,
   onProgress: (frac: number) => void,
-): Promise<{ metrics: Metrics; worstScenes: JobResult["worstScenes"] }> {
+): Promise<{ metrics: Metrics; worstScenes: JobResult["worstScenes"]; errors: string[] }> {
   const vmafLog = path.join(work, "vmaf.json")
   const threads = os.availableParallelism()
   // フレーム番号で揃える (タイムスタンプのずれ・可変フレームレートの影響を受けないように)
@@ -596,13 +682,17 @@ async function measureQuality(
       // XPSNR は ffmpeg 9 の 10bit 入力だと値が壊れるため 8bit で測る
       `[d2]format=yuv420p[d3];[r2]format=yuv420p[r3];[d3][r3]xpsnr`,
     ].join(";")
-  const r = await runChecked("ffmpeg", ["-hide_banner", "-nostdin", "-progress", "pipe:1", "-i", encoded, "-i", src, "-filter_complex", graph, "-f", "null", "-"], {
+  // 全編をデコードするので、デコードのエラー (ログの [error] 以上の行) も集めて変換結果の検査を兼ねる
+  const r = await run("ffmpeg", ["-hide_banner", "-nostdin", "-nostats", "-loglevel", "level+info", "-progress", "pipe:1", "-i", encoded, "-i", src, "-filter_complex", graph, "-f", "null", "-"], {
     signal: ctx.signal,
     onStdout: (line) => {
       const m = line.match(/^frame=(\d+)/)
       if (m) onProgress(Math.min(1, Number(m[1]) / frames))
     },
   })
+  // 出力先 (null) の「タイムスタンプが増えていない」はフレーム番号で揃えたために出るもので、デコードとは関係ないので除く
+  const errors = r.stderr.split(/\r?\n|\r/).map((l) => l.trim()).filter((l) => /\[(error|fatal|panic)\]/.test(l) && !l.startsWith("[null @"))
+  if (r.code !== 0) errors.push(`ffmpeg が終了コード ${r.code} で終了`)
   const metrics: Metrics = {}
   const xm = r.stderr.match(/XPSNR\s+y:\s*([\d.]+|inf)\s+u:\s*([\d.]+|inf)\s+v:\s*([\d.]+|inf)/)
   if (xm) {
@@ -625,7 +715,7 @@ async function measureQuality(
   } catch {
     ctx.log("VMAF のログを読めませんでした")
   }
-  return { metrics, worstScenes }
+  return { metrics, worstScenes, errors }
 }
 
 // 1秒の移動平均が低い場面を、互いに 3秒以上離して最大5か所選ぶ (見比べで確認する場所の候補)

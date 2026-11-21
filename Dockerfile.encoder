@@ -10,12 +10,24 @@ COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build && npm prune --omit=dev
 
+# ---- SVT-AV1 (release) stage ----
+# Arch の svt-av1 パッケージはデバッグ版 (メモリの追跡・assert が有効) で約1割遅いので、
+# 同じ版をリリース設定でビルドし直して置き換える (出力は同じ)
+FROM archlinux:latest AS svt
+RUN pacman -Syu --noconfirm --needed base-devel cmake nasm git ninja svt-av1 \
+    && version=$(pacman -Q svt-av1 | awk "{print \$2}" | cut -d- -f1) \
+    && git clone --depth 1 --branch "v${version}" https://gitlab.com/AOMediaCodec/SVT-AV1.git /svt \
+    && cmake -S /svt -B /svt/build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
+      -DBUILD_APPS=OFF -DBUILD_TESTING=OFF -DBUILD_SHARED_LIBS=ON \
+    && cmake --build /svt/build && DESTDIR=/out cmake --install /svt/build
+
 # ---- runtime stage ----
 FROM archlinux:latest AS runtime
 RUN pacman -Syu --noconfirm --needed \
       av1an svt-av1 ffmpeg vmaf vapoursynth vapoursynth-plugin-bestsource mkvtoolnix-cli util-linux \
     && pacman -Scc --noconfirm \
     && rm -rf /var/cache/pacman/pkg/*
+COPY --from=svt /out/usr/lib/ /usr/lib/
 COPY --from=build /usr/local/bin/node /usr/local/bin/node
 COPY docker/ffmpeg-av1an-wrapper.sh /usr/local/bin/ffmpeg
 WORKDIR /app

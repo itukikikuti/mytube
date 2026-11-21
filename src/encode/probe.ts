@@ -127,9 +127,45 @@ export async function streamDuration(file: string, stream: "v:0" | "a:0", option
   return Number.isFinite(first) ? last - first : 0
 }
 
-// 全編をデコードしてエラーの行を集める (エラーが無ければ空配列)
-export async function decodeErrors(file: string, options: RunOptions = {}): Promise<string[]> {
-  const result = await run("ffmpeg", ["-hide_banner", "-nostdin", "-v", "error", "-i", file, "-map", "0:v:0?", "-map", "0:a:0?", "-f", "null", "-"], options)
+// パケットを1回だけ読んで、最初の映像・音声ストリームのパケット数と実際の長さ (countPackets・streamDuration と同じ値) をまとめて出す
+export type StreamPackets = { packets: number; duration: number }
+
+export async function packetSummary(file: string, options: RunOptions = {}): Promise<{ video: StreamPackets; audio: StreamPackets }> {
+  const { stdout } = await runChecked("ffprobe", ["-v", "error", "-show_entries", "packet=stream_index,pts_time,duration_time:stream=index,codec_type", "-of", "csv=p=0", file], options)
+  const types = new Map<number, string>()
+  const stats = new Map<number, { packets: number; first: number; last: number }>()
+  for (const line of stdout.split("\n")) {
+    const parts = line.trim().split(",")
+    const index = Number(parts[0])
+    if (!parts[0] || !Number.isInteger(index)) continue
+    // ストリームの行は「番号,種類」、パケットの行は「番号,時刻,長さ」
+    if (parts.length === 2 && Number.isNaN(Number(parts[1]))) {
+      types.set(index, parts[1])
+      continue
+    }
+    const s = stats.get(index) ?? { packets: 0, first: Infinity, last: -Infinity }
+    s.packets++
+    const pts = Number(parts[1])
+    const dur = Number(parts[2])
+    if (parts[1] && Number.isFinite(pts)) {
+      s.first = Math.min(s.first, pts)
+      s.last = Math.max(s.last, pts + (parts[2] && Number.isFinite(dur) ? dur : 0))
+    }
+    stats.set(index, s)
+  }
+  const of = (type: string): StreamPackets => {
+    const index = [...types].filter(([, t]) => t === type).map(([i]) => i).sort((a, b) => a - b)[0]
+    const s = index === undefined ? undefined : stats.get(index)
+    if (!s) return { packets: 0, duration: 0 }
+    return { packets: s.packets, duration: Number.isFinite(s.first) ? s.last - s.first : 0 }
+  }
+  return { video: of("video"), audio: of("audio") }
+}
+
+// 全編をデコードしてエラーの行を集める (エラーが無ければ空配列)。streams で映像だけ・音声だけにもできる
+export async function decodeErrors(file: string, options: RunOptions = {}, streams: "all" | "video" | "audio" = "all"): Promise<string[]> {
+  const maps = [...(streams !== "audio" ? ["-map", "0:v:0?"] : []), ...(streams !== "video" ? ["-map", "0:a:0?"] : [])]
+  const result = await run("ffmpeg", ["-hide_banner", "-nostdin", "-v", "error", "-i", file, ...maps, "-f", "null", "-"], options)
   const errors = result.stderr.split("\n").map((l) => l.trim()).filter(Boolean)
   if (result.code !== 0) errors.push(`ffmpeg が終了コード ${result.code} で終了`)
   return errors
