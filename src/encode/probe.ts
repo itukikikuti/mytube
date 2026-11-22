@@ -132,22 +132,24 @@ export async function streamDuration(file: string, stream: "v:0" | "a:0", option
   return Number.isFinite(first) ? last - first : 0
 }
 
-// パケットを1回だけ読んで、最初の映像・音声ストリームのパケット数と実際の長さ (countPackets・streamDuration と同じ値) をまとめて出す
+// パケットを1回だけ読んで、最初の映像・音声ストリームのパケット数と実際の長さをまとめて出す
+// 編集リストで捨てられるパケット (flags に D) はデコードしても出てこないので数えない
+// 長い動画はパケットの行が多く、出力をまとめて受け取ると上限で切れるので1行ずつ処理する
 export type StreamPackets = { packets: number; duration: number }
 
 export async function packetSummary(file: string, options: RunOptions = {}): Promise<{ video: StreamPackets; audio: StreamPackets }> {
-  const { stdout } = await runChecked("ffprobe", ["-v", "error", "-show_entries", "packet=stream_index,pts_time,duration_time:stream=index,codec_type", "-of", "csv=p=0", file], options)
   const types = new Map<number, string>()
   const stats = new Map<number, { packets: number; first: number; last: number }>()
-  for (const line of stdout.split("\n")) {
+  const onLine = (line: string) => {
     const parts = line.trim().split(",")
     const index = Number(parts[0])
-    if (!parts[0] || !Number.isInteger(index)) continue
-    // ストリームの行は「番号,種類」、パケットの行は「番号,時刻,長さ」
+    if (!parts[0] || !Number.isInteger(index)) return
+    // ストリームの行は「番号,種類」、パケットの行は「番号,時刻,長さ,flags」
     if (parts.length === 2 && Number.isNaN(Number(parts[1]))) {
       types.set(index, parts[1])
-      continue
+      return
     }
+    if (parts[3]?.includes("D")) return
     const s = stats.get(index) ?? { packets: 0, first: Infinity, last: -Infinity }
     s.packets++
     const pts = Number(parts[1])
@@ -158,6 +160,7 @@ export async function packetSummary(file: string, options: RunOptions = {}): Pro
     }
     stats.set(index, s)
   }
+  await runChecked("ffprobe", ["-v", "error", "-show_entries", "packet=stream_index,pts_time,duration_time,flags:stream=index,codec_type", "-of", "csv=p=0", file], { ...options, onStdout: onLine })
   const of = (type: string): StreamPackets => {
     const index = [...types].filter(([, t]) => t === type).map(([i]) => i).sort((a, b) => a - b)[0]
     const s = index === undefined ? undefined : stats.get(index)
@@ -212,26 +215,25 @@ export function rateValue(rate: string): number {
 // - B フレームがあるのに全パケットで表示時刻 = 復号時刻 (MP4 の ctts が無い): 表示の順番が狂う
 // - 表示時刻が無い・重複している・(B フレームが無いのに) 逆行している・復号時刻より前
 export async function timestampProblem(file: string, options: RunOptions = {}): Promise<string | null> {
-  const { stdout } = await runChecked("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "packet=pts,dts:stream=has_b_frames", "-of", "csv=p=0", file], options)
   let hasBFrames = 0
   const pts: number[] = []
   let missing = 0
   let backwards = 0
   let beforeDts = 0
   let differs = false
-  for (const line of stdout.split("\n")) {
+  const onLine = (line: string) => {
     const parts = line.trim().split(",")
-    if (!parts[0]) continue
+    if (!parts[0]) return
     // ストリームの行は has_b_frames の1つだけ、パケットの行は「pts,dts」
     if (parts.length === 1) {
       hasBFrames = Number(parts[0]) || 0
-      continue
+      return
     }
     const p = Number(parts[0])
     const d = Number(parts[1])
     if (!Number.isFinite(p)) {
       missing++
-      continue
+      return
     }
     if (pts.length && p <= pts[pts.length - 1]) backwards++
     if (Number.isFinite(d)) {
@@ -240,6 +242,8 @@ export async function timestampProblem(file: string, options: RunOptions = {}): 
     }
     pts.push(p)
   }
+  // 長い動画は出力をまとめて受け取ると上限で切れるので1行ずつ処理する
+  await runChecked("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "packet=pts,dts:stream=has_b_frames", "-of", "csv=p=0", file], { ...options, onStdout: onLine })
   if (!pts.length) return null
   const problems: string[] = []
   if (missing) problems.push(`表示時刻の無いパケット ${missing} 個`)
