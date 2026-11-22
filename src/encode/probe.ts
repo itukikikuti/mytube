@@ -47,6 +47,9 @@ export type MediaInfo = {
     pixFmt: string
     fps: number
     avgFps: number
+    // r_frame_rate / avg_frame_rate の元の書き方 (例: 30000/1001)
+    rate: string
+    avgRate: string
     frames: number
     startTime: number
     rotation: number
@@ -90,6 +93,8 @@ export async function probeMedia(file: string, options: RunOptions = {}): Promis
       pixFmt: v.pix_fmt ?? "",
       fps,
       avgFps,
+      rate: v.r_frame_rate ?? "",
+      avgRate: v.avg_frame_rate ?? "",
       frames: Number(v.nb_frames) || Math.round((Number(v.duration) || duration) * avgFps),
       startTime: Number(v.start_time) || 0,
       rotation: Math.round(v.side_data_list?.find((d) => typeof d.rotation === "number")?.rotation ?? 0),
@@ -183,4 +188,67 @@ export function webPlayableReason(name: string, info: MediaInfo): string | null 
   if (!WEB_VIDEO_CODECS.has(info.video.codec)) return `映像コーデック ${info.video.codec} がブラウザ非対応`
   if (info.audio && !WEB_AUDIO_CODECS.has(info.audio.codec)) return `音声コーデック ${info.audio.codec} がブラウザ非対応`
   return null
+}
+
+// 出力のフレームレート (この一定間隔で時刻を作り直す)。
+// r_frame_rate が平均と合っていればそれを、合わなければ (可変フレームレート・時刻が壊れている) 平均に近い一般的な値を使う
+const COMMON_RATES = ["24000/1001", "24", "25", "30000/1001", "30", "48", "50", "60000/1001", "60", "120"]
+
+export function outputFrameRate(info: MediaInfo): string {
+  const v = info.video!
+  const avg = v.avgFps || v.fps || 30
+  if (v.rate && v.fps > 0 && Math.abs(v.fps - avg) <= 0.001 * avg) return v.rate
+  // 時刻が壊れていると平均もずれるので、1% 以内で一番近いものにそろえる
+  const common = COMMON_RATES.filter((r) => Math.abs(parseRate(r) - avg) <= 0.01 * avg)
+    .sort((a, b) => Math.abs(parseRate(a) - avg) - Math.abs(parseRate(b) - avg))[0]
+  return common ?? String(Math.round(avg * 1000) / 1000)
+}
+
+export function rateValue(rate: string): number {
+  return parseRate(rate)
+}
+
+// 映像のパケットの時刻が壊れていないかを調べる (デコードしないので速い)。壊れていれば理由を返す
+// - B フレームがあるのに全パケットで表示時刻 = 復号時刻 (MP4 の ctts が無い): 表示の順番が狂う
+// - 表示時刻が無い・重複している・(B フレームが無いのに) 逆行している・復号時刻より前
+export async function timestampProblem(file: string, options: RunOptions = {}): Promise<string | null> {
+  const { stdout } = await runChecked("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "packet=pts,dts:stream=has_b_frames", "-of", "csv=p=0", file], options)
+  let hasBFrames = 0
+  const pts: number[] = []
+  let missing = 0
+  let backwards = 0
+  let beforeDts = 0
+  let differs = false
+  for (const line of stdout.split("\n")) {
+    const parts = line.trim().split(",")
+    if (!parts[0]) continue
+    // ストリームの行は has_b_frames の1つだけ、パケットの行は「pts,dts」
+    if (parts.length === 1) {
+      hasBFrames = Number(parts[0]) || 0
+      continue
+    }
+    const p = Number(parts[0])
+    const d = Number(parts[1])
+    if (!Number.isFinite(p)) {
+      missing++
+      continue
+    }
+    if (pts.length && p <= pts[pts.length - 1]) backwards++
+    if (Number.isFinite(d)) {
+      if (p !== d) differs = true
+      if (p < d) beforeDts++
+    }
+    pts.push(p)
+  }
+  if (!pts.length) return null
+  const problems: string[] = []
+  if (missing) problems.push(`表示時刻の無いパケット ${missing} 個`)
+  if (hasBFrames > 0 && !differs && pts.length > 1) problems.push("B フレームがあるのに全パケットで表示時刻 = 復号時刻")
+  const sorted = [...pts].sort((a, b) => a - b)
+  let duplicates = 0
+  for (let i = 1; i < sorted.length; i++) if (sorted[i] === sorted[i - 1]) duplicates++
+  if (duplicates) problems.push(`表示時刻の重複 ${duplicates} 個`)
+  if (hasBFrames === 0 && backwards) problems.push(`表示時刻の逆行 ${backwards} 個`)
+  if (beforeDts) problems.push(`表示時刻が復号時刻より前 ${beforeDts} 個`)
+  return problems.length ? problems.join("、") : null
 }

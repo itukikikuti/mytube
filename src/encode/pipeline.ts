@@ -4,7 +4,7 @@ import path from "node:path"
 import { REJECTED_DIR_NAME, WORK_DIR_NAME, encodePaths } from "./config.js"
 import type { Job, JobResult } from "./db.js"
 import { resolveInside } from "./files.js"
-import { countPackets, decodeErrors, packetSummary, probeMedia, webPlayableReason, type MediaInfo } from "./probe.js"
+import { countPackets, decodeErrors, outputFrameRate, packetSummary, probeMedia, rateValue, timestampProblem, webPlayableReason, type MediaInfo } from "./probe.js"
 import { CanceledError, run, runChecked, type RunOptions } from "./process.js"
 import type { EncodeSettings } from "./settings.js"
 
@@ -39,6 +39,24 @@ function removeQuietly(target: string) {
 
 function sec(ms: number) {
   return Math.round(ms / 100) / 10
+}
+
+// 出力する映像の時刻の作り直し方 (7月の optimize.js と同じく、元の時刻をそのまま使わず一定間隔にする)
+// - rate: 出力のフレームレート。fps フィルタで一定間隔にそろえる (可変フレームレートは音声とずれないように複製・間引きされる)
+// - byOrder: 元の時刻が壊れているので、時刻を使わずデコードした順番から付け直す (フレームはそのまま1枚ずつ)
+// - reorder: byOrder のときの付け直しのフィルタ / filter: 元動画から作る映像に掛けるフィルタ (付け直し + 一定間隔)
+type Timing = { rate: string; byOrder: boolean; reorder: string; filter: string }
+
+function timingFor(info: MediaInfo, byOrder: boolean): Timing {
+  const rate = outputFrameRate(info)
+  const start = info.video!.startTime
+  const reorder = byOrder ? `setpts=${start.toFixed(6)}/TB+N/(${rate})/TB` : ""
+  return { rate, byOrder, reorder, filter: [reorder, `fps=${rate}`].filter(Boolean).join(",") }
+}
+
+// フィルタの引数に入れるパスのエスケープ (オプションの値 → フィルタグラフの2段階。Windows の C:\ なども通るように)
+function filterPath(p: string): string {
+  return p.replace(/[\\':]/g, "\\$&").replace(/[\\'[\],;]/g, "\\$&")
 }
 
 // 縮まない・失敗などで元を採用するとき、前回の結果 (encoded / _rejected のどちらか) を消しておく
@@ -82,7 +100,11 @@ export async function runPipeline(job: Job, settings: EncodeSettings, ctx: JobCo
   ctx.log(`元動画: ${v.codec} ${v.width}x${v.height} ${v.fps.toFixed(3)}fps (平均 ${v.avgFps.toFixed(3)}) ${v.pixFmt} ${info.duration.toFixed(2)}秒 ${sourceSize} バイト` +
     (info.audio ? ` / 音声 ${info.audio.codec} ${info.audio.channels}ch` : " / 音声なし") + (v.rotation ? ` / 回転 ${v.rotation}°` : ""))
   if (Math.abs(v.fps - v.avgFps) > 0.01 * v.fps) ctx.log("注意: 可変フレームレートの可能性があります (尺の検査で確認します)")
-  const unplayable = webPlayableReason(job.file, info)
+  // 時刻が壊れている (B フレームがあるのに表示時刻 = 復号時刻など) と、ブラウザでは滑らかに再生できない
+  const brokenTimestamps = await timestampProblem(src, opts)
+  const timing = timingFor(info, !!brokenTimestamps)
+  ctx.log(`出力の時刻: ${timing.rate}fps の一定間隔に作り直す${timing.byOrder ? " (元の時刻が壊れているため、デコードした順番から付け直す)" : ""}`)
+  const unplayable = webPlayableReason(job.file, info) ?? (brokenTimestamps ? `映像の時刻が壊れている: ${brokenTimestamps}` : null)
   if (unplayable) ctx.log(`元動画はブラウザで再生できない (${unplayable}) ため、縮まなくても変換結果を採用します`)
 
   // 本番のエンコードで元動画をデコードしたときのエラー (映像は本番を最後までエンコードしたときだけ分かる)
@@ -123,7 +145,8 @@ export async function runPipeline(job: Job, settings: EncodeSettings, ctx: JobCo
   const audioSize = info.audio ? fs.statSync(audioFile).size : 0
 
   // ===== 3. 映像 =====
-  const videoFile = path.join(work, "video.mkv")
+  // MKV は時刻がミリ秒単位に丸められて間隔が揃わないので、MP4 に出す (av1an は MKV にしか出せない)
+  const videoFile = path.join(work, settings.method === "av1an" ? "video.mkv" : "video.mp4")
   const videoStart = Date.now()
   let crf: JobResult["crf"]
   const videoProgress = (frac: number, label: string) =>
@@ -136,11 +159,11 @@ export async function runPipeline(job: Job, settings: EncodeSettings, ctx: JobCo
   }
   try {
     if (settings.method === "quick") {
-      crf = await encodeQuick(src, info, work, videoFile, settings, ctx, videoProgress, videoSizeLimit, !!unplayable || audioErrors.length > 0, onSourceDecoded)
+      crf = await encodeQuick(src, info, timing, work, videoFile, settings, ctx, videoProgress, videoSizeLimit, !!unplayable || audioErrors.length > 0, onSourceDecoded)
     } else if (settings.method === "av1an") {
       crf = await encodeWithAv1an(src, info, work, videoFile, settings, ctx, videoProgress)
     } else {
-      crf = await encodeWithSingleCrf(src, info, work, videoFile, settings, ctx, videoProgress, onSourceDecoded)
+      crf = await encodeWithSingleCrf(src, info, timing, work, videoFile, settings, ctx, videoProgress, onSourceDecoded)
     }
   } catch (err) {
     if (err instanceof CanceledError) throw err
@@ -196,8 +219,11 @@ export async function runPipeline(job: Job, settings: EncodeSettings, ctx: JobCo
   const [sourcePackets, encodedPackets, encodedErrors] = await Promise.all([packetSummary(src, opts), packetSummary(muxed, opts), decodeErrors(muxed, opts)])
   const sourceFrames = sourcePackets.video.packets
   const encodedFrames = encodedPackets.video.packets
-  if (Math.abs(encodedFrames - sourceFrames) > 1) problems.push(`フレーム数が一致しない (元 ${sourceFrames} / 結果 ${encodedFrames})`)
-  const srcVideoDuration = sourcePackets.video.duration
+  // 時刻を順番から付け直したときは元の時刻を使わず、フレーム数と出力のフレームレートから尺を出す
+  const srcVideoDuration = timing.byOrder ? sourceFrames / rateValue(timing.rate) : sourcePackets.video.duration
+  // 一定間隔にそろえるので、可変フレームレートの元はフレーム数が変わる。元の尺 × フレームレートと比べる
+  const expectedFrames = timing.byOrder || settings.method === "av1an" ? sourceFrames : Math.round(srcVideoDuration * rateValue(timing.rate))
+  if (Math.abs(encodedFrames - expectedFrames) > 1) problems.push(`フレーム数が一致しない (元 ${sourceFrames}${expectedFrames !== sourceFrames ? `、一定間隔にすると ${expectedFrames}` : ""} / 結果 ${encodedFrames})`)
   const encVideoDuration = encodedPackets.video.duration
   const tolerance = Math.max(0.2, 2 / (v.avgFps || 30))
   if (Math.abs(srcVideoDuration - encVideoDuration) > tolerance) problems.push(`映像の尺が一致しない (元 ${srcVideoDuration.toFixed(3)}秒 / 結果 ${encVideoDuration.toFixed(3)}秒)`)
@@ -210,7 +236,7 @@ export async function runPipeline(job: Job, settings: EncodeSettings, ctx: JobCo
   }
   if (encodedErrors.length) problems.push(`変換結果のデコードでエラー ${encodedErrors.length} 件 (${encodedErrors[0]})`)
   lap("検査", t)
-  ctx.log(`検査: フレーム 元 ${sourceFrames} / 結果 ${encodedFrames}、映像 元 ${srcVideoDuration.toFixed(3)}秒 / 結果 ${encVideoDuration.toFixed(3)}秒` +
+  ctx.log(`検査: フレーム 元 ${sourceFrames}${expectedFrames !== sourceFrames ? ` (一定間隔にすると ${expectedFrames})` : ""} / 結果 ${encodedFrames}、映像 元 ${srcVideoDuration.toFixed(3)}秒 / 結果 ${encVideoDuration.toFixed(3)}秒` +
     (info.audio ? `、音声 元 ${audioSource!.toFixed(2)}秒 / 結果 ${audioEncoded!.toFixed(2)}秒` : "") +
     (problems.length ? `\n問題: ${problems.join(" / ")}` : "、問題なし"))
 
@@ -371,7 +397,7 @@ const QUICK_MAX_STEP = 8
 const QUICK_SIZE_MARGIN = 0.05
 
 async function encodeQuick(
-  src: string, info: MediaInfo, work: string, output: string, settings: EncodeSettings, ctx: JobContext,
+  src: string, info: MediaInfo, timing: Timing, work: string, output: string, settings: EncodeSettings, ctx: JobContext,
   onProgress: (frac: number, label: string) => void,
   // 本番のエンコード中に映像がこのバイト数を超えたら縮まないので打ち切る
   videoSizeLimit: number,
@@ -394,7 +420,9 @@ async function encodeQuick(
   const sample = whole ? src : path.join(work, "sample.mkv")
   // 入力側のオプション: 回転はデコード時に適用せず、結合のときに元と同じ回転情報を付ける
   const input = ["-noautorotate", "-i", sample]
+  // 元動画から作る映像は時刻を一定間隔に作り直す。サンプル (時刻はフレームの順番) はそのまま使う
   const videoOnly = ["-map", "0:v:0", "-an", "-sn", "-dn", "-fps_mode", "passthrough"]
+  const retimed = [...videoOnly, "-vf", timing.filter]
   let sampleSeconds = duration
   // 元動画にエラーがあると、縮まなくても結果を採用することになるので、本番のエンコードを省いたり途中で打ち切ったりしない
   // (元動画のエラーの判断は本番のエンコードのデコードで行う。ここはサンプル作成・探索で全編をデコードしたついでに分かったことを使うだけ)
@@ -411,7 +439,7 @@ async function encodeQuick(
     // 選んだ区間以外もデコードするので、元動画の映像にエラーがあるかが分かる
     const r = await runChecked("ffmpeg", [
       "-hide_banner", "-nostdin", "-v", "error", "-y", "-noautorotate", "-i", src, ...videoOnly,
-      "-vf", `select='${ranges.join("+")}',setpts=N/FRAME_RATE/TB,format=${sampleFormat}`, "-c:v", "ffv1", "-threads", String(threads), sample,
+      "-vf", `${timing.reorder ? `${timing.reorder},` : ""}select='${ranges.join("+")}',setpts=N/FRAME_RATE/TB,format=${sampleFormat}`, "-c:v", "ffv1", "-threads", String(threads), sample,
     ], opts)
     if (errorLines(r.stderr).length) sourceMayHaveErrors = true
     const frames = await countPackets(sample, "v:0", opts)
@@ -435,15 +463,16 @@ async function encodeQuick(
   const trialErrors = new Map<number, string[]>()
   const scoreAt = async (crfValue: number) => {
     const trial = trialFile(crfValue)
-    const r = await runChecked("ffmpeg", ["-hide_banner", "-nostdin", "-v", "error", "-y", ...input, ...videoOnly, ...svt(crfValue), trial], opts)
+    const r = await runChecked("ffmpeg", ["-hide_banner", "-nostdin", "-v", "error", "-y", ...input, ...(whole ? retimed : videoOnly), ...svt(crfValue), trial], opts)
     if (whole) {
       const errors = errorLines(r.stderr)
       trialErrors.set(crfValue, errors)
       if (errors.length) sourceMayHaveErrors = true
     }
     const align = "settb=1/1000,setpts=N,format=yuv420p10le"
+    // 全編を探索するときは、元動画にも同じ時刻の作り直しをしてからフレームを1枚ずつ比べる
     await runChecked("ffmpeg", ["-hide_banner", "-nostdin", "-v", "error", "-noautorotate", "-i", trial, ...input, "-lavfi",
-      `[0:v]${align}[d];[1:v]${align}[r];[d][r]libvmaf=n_threads=${threads}:n_subsample=2:log_fmt=json:log_path=${vmafLog.replace(/[\\':]/g, "\\$&")}`,
+      `[0:v]${align}[d];[1:v]${whole ? `${timing.filter},` : ""}${align}[r];[d][r]libvmaf=n_threads=${threads}:n_subsample=2:log_fmt=json:log_path=${filterPath(vmafLog)}`,
       "-f", "null", "-"], opts)
     const data = JSON.parse(fs.readFileSync(vmafLog, "utf8")) as { frames: { metrics: { vmaf: number } }[] }
     const score = aggregate(data.frames.map((f) => f.metrics.vmaf), settings.probingStat)
@@ -519,7 +548,7 @@ async function encodeQuick(
     let exceeded = 0
     try {
       const r = await runChecked("ffmpeg", [
-        "-hide_banner", "-nostdin", "-v", "error", "-y", "-progress", "pipe:1", "-noautorotate", "-i", src, ...videoOnly, ...svt(crf), output,
+        "-hide_banner", "-nostdin", "-v", "error", "-y", "-progress", "pipe:1", "-noautorotate", "-i", src, ...retimed, ...svt(crf), output,
       ], {
         signal: limiter.signal,
         onStdout: (line) => {
@@ -564,7 +593,7 @@ const SAMPLE_SECONDS = 20
 const SAMPLE_COUNT = 3
 
 async function encodeWithSingleCrf(
-  src: string, info: MediaInfo, work: string, output: string, settings: EncodeSettings, ctx: JobContext,
+  src: string, info: MediaInfo, timing: Timing, work: string, output: string, settings: EncodeSettings, ctx: JobContext,
   onProgress: (frac: number, label: string) => void,
   onSourceDecoded: (errors: string[]) => void,
 ): Promise<JobResult["crf"]> {
@@ -620,7 +649,7 @@ async function encodeWithSingleCrf(
   ctx.log(`CRF ${lo} で全体をエンコード (preset ${settings.preset})`)
 
   const totalSeconds = duration || 1
-  const r = await runChecked("ffmpeg", ["-hide_banner", "-nostdin", "-v", "error", "-y", "-progress", "pipe:1", "-i", src, "-map", "0:v:0", ...svt(settings.preset, lo), "-an", output], {
+  const r = await runChecked("ffmpeg", ["-hide_banner", "-nostdin", "-v", "error", "-y", "-progress", "pipe:1", "-i", src, "-map", "0:v:0", "-vf", timing.filter, "-fps_mode", "passthrough", ...svt(settings.preset, lo), "-an", output], {
     signal: ctx.signal,
     onStdout: (line) => {
       const m = line.match(/^out_time_us=(\d+)/)
