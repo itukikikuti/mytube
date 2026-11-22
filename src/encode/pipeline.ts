@@ -58,6 +58,8 @@ function errorLines(stderr: string): string[] {
 // 検査は採用する方にだけ、必要なときだけ行う:
 // - 元動画のエラーは、本番のエンコード (音声・映像) で元動画を全編デコードしたときのエラーで判断する (別の検査はしない)
 // - 縮んだ → 結果を採用 (結果だけ検査) / 縮まない・元にエラーなし → 元を採用 (検査なし) / 縮まない・元にエラーあり → 結果を採用 (結果だけ検査)
+// - 元がブラウザで再生できない形式なら、縮まなくても必ず結果を採用する (省略・打ち切りもしない)。
+//   エンコードの失敗・結果の検査で問題があったときは元を採用せず、ジョブを失敗にする
 // - 画質は探索 (サンプルの VMAF) で決めているので、結果の画質は測り直さない
 export async function runPipeline(job: Job, settings: EncodeSettings, ctx: JobContext): Promise<JobResult> {
   const src = resolveInside(encodePaths.uploadDir, job.file)
@@ -81,6 +83,7 @@ export async function runPipeline(job: Job, settings: EncodeSettings, ctx: JobCo
     (info.audio ? ` / 音声 ${info.audio.codec} ${info.audio.channels}ch` : " / 音声なし") + (v.rotation ? ` / 回転 ${v.rotation}°` : ""))
   if (Math.abs(v.fps - v.avgFps) > 0.01 * v.fps) ctx.log("注意: 可変フレームレートの可能性があります (尺の検査で確認します)")
   const unplayable = webPlayableReason(job.file, info)
+  if (unplayable) ctx.log(`元動画はブラウザで再生できない (${unplayable}) ため、縮まなくても変換結果を採用します`)
 
   // 本番のエンコードで元動画をデコードしたときのエラー (映像は本番を最後までエンコードしたときだけ分かる)
   const audioErrors: string[] = []
@@ -133,7 +136,7 @@ export async function runPipeline(job: Job, settings: EncodeSettings, ctx: JobCo
   }
   try {
     if (settings.method === "quick") {
-      crf = await encodeQuick(src, info, work, videoFile, settings, ctx, videoProgress, videoSizeLimit, audioErrors.length > 0, onSourceDecoded)
+      crf = await encodeQuick(src, info, work, videoFile, settings, ctx, videoProgress, videoSizeLimit, !!unplayable || audioErrors.length > 0, onSourceDecoded)
     } else if (settings.method === "av1an") {
       crf = await encodeWithAv1an(src, info, work, videoFile, settings, ctx, videoProgress)
     } else {
@@ -141,6 +144,8 @@ export async function runPipeline(job: Job, settings: EncodeSettings, ctx: JobCo
     }
   } catch (err) {
     if (err instanceof CanceledError) throw err
+    // 元が再生できないときは元を採用しない (失敗にする)
+    if (unplayable) throw err
     lap("映像", videoStart)
     const result = base()
     removePreviousOutputs(job.file)
@@ -173,8 +178,8 @@ export async function runPipeline(job: Job, settings: EncodeSettings, ctx: JobCo
   const shrunk = ratio < settings.keepRatio
   const ratioText = `元の ${(ratio * 100).toFixed(1)}%`
 
-  // 縮まず元動画にエラーもなければ元を採用。何も検査しない
-  if (!shrunk && !sourceResult.sourceErrors) {
+  // 縮まず元動画にエラーもなく、元がそのまま再生できるなら元を採用。何も検査しない
+  if (!shrunk && !sourceResult.sourceErrors && !unplayable) {
     removePreviousOutputs(job.file)
     removeQuietly(muxed)
     lap("合計", t0)
@@ -213,7 +218,9 @@ export async function runPipeline(job: Job, settings: EncodeSettings, ctx: JobCo
   let decision: JobResult["decision"] = "encoded"
   let reason = shrunk
     ? `${ratioText} に縮小`
-    : `縮まない (${ratioText}) が、元動画にデコードエラー ${sourceResult.sourceErrors} 件があるため変換結果を採用`
+    : unplayable
+      ? `縮まない (${ratioText}) が、元動画がブラウザで再生できない (${unplayable}) ため変換結果を採用`
+      : `縮まない (${ratioText}) が、元動画にデコードエラー ${sourceResult.sourceErrors} 件があるため変換結果を採用`
   if (problems.length) {
     decision = "original"
     reason = `検査エラー: ${problems.join(" / ")}${playableNote(sourceResult)}`
@@ -228,6 +235,10 @@ export async function runPipeline(job: Job, settings: EncodeSettings, ctx: JobCo
   removePreviousOutputs(job.file)
   fs.renameSync(muxed, outPath)
   lap("合計", t0)
+  // 元が再生できないときは元を採用せず失敗にする (結果は見比べ用に _rejected に残す)
+  if (decision === "original" && unplayable) {
+    throw new Error(`変換結果の検査で問題 (元動画はブラウザで再生できないため元は採用しない): ${problems.join(" / ")} → encoded/${outName}`)
+  }
   ctx.log(`判定: ${decision === "encoded" ? "結果を採用" : "元を採用"} (${reason}) → encoded/${outName}`)
 
   return {
@@ -364,8 +375,8 @@ async function encodeQuick(
   onProgress: (frac: number, label: string) => void,
   // 本番のエンコード中に映像がこのバイト数を超えたら縮まないので打ち切る
   videoSizeLimit: number,
-  // 元動画の音声にデコードエラーがあった
-  audioHadErrors: boolean,
+  // 縮まなくても結果を採用する (元がブラウザで再生できない・元の音声にデコードエラーがあった)
+  mustUseResult: boolean,
   // 本番のエンコードで元動画の映像を全編デコードしたときのエラーの行
   onSourceDecoded: (errors: string[]) => void,
 ): Promise<JobResult["crf"]> {
@@ -387,7 +398,7 @@ async function encodeQuick(
   let sampleSeconds = duration
   // 元動画にエラーがあると、縮まなくても結果を採用することになるので、本番のエンコードを省いたり途中で打ち切ったりしない
   // (元動画のエラーの判断は本番のエンコードのデコードで行う。ここはサンプル作成・探索で全編をデコードしたついでに分かったことを使うだけ)
-  let sourceMayHaveErrors = audioHadErrors
+  let sourceMayHaveErrors = mustUseResult
   if (!whole) {
     const count = Math.max(1, Math.round(settings.sampleSeconds / QUICK_SEGMENT_SECONDS))
     const ranges: string[] = []
